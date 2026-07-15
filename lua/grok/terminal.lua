@@ -1,13 +1,10 @@
---- Terminal-embedded Grok Build TUI sidebar (the claudecode.nvim approach):
---- run the real `grok` CLI in a vertical-split terminal so the plugin looks
---- and behaves exactly like Grok Build itself.
+--- Sidebar terminal running the real Grok Build TUI.
 local config = require("grok.config")
 
 local M = {}
 
 local state = {
   buf = nil,
-  win = nil,
   job = nil,
   autoread_group = nil,
 }
@@ -16,7 +13,7 @@ local function buf_valid()
   return state.buf ~= nil and vim.api.nvim_buf_is_valid(state.buf)
 end
 
-local function find_win_for_buf()
+local function find_win()
   if not buf_valid() then
     return nil
   end
@@ -56,38 +53,29 @@ function M.build_cmd(extra_args)
   return cmd
 end
 
-local function configure_win(win)
+local function open_split()
+  local position = config.get().sidebar.position or "right"
+  vim.cmd(position == "left" and "topleft vsplit" or "botright vsplit")
+  local win = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_width(win, sidebar_width())
   vim.wo[win].number = false
   vim.wo[win].relativenumber = false
   vim.wo[win].signcolumn = "no"
   vim.wo[win].foldcolumn = "0"
   vim.wo[win].winfixwidth = true
-end
-
-local function open_split()
-  local position = config.get().sidebar.position or "right"
-  if position == "left" then
-    vim.cmd("topleft vsplit")
-  else
-    vim.cmd("botright vsplit")
-  end
-  local win = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_width(win, sidebar_width())
-  configure_win(win)
   return win
 end
 
 local function spawn(cmd)
-  local cfg = config.get()
   local opts = {
-    cwd = cfg.cwd or vim.fn.getcwd(),
+    cwd = config.get().cwd or vim.fn.getcwd(),
     on_exit = function(job_id)
       vim.schedule(function()
         if job_id ~= state.job then
           return
         end
-        local buf, win = state.buf, find_win_for_buf()
-        state.buf, state.win, state.job = nil, nil, nil
+        local buf, win = state.buf, find_win()
+        state.buf, state.job = nil, nil
         if win and vim.api.nvim_win_is_valid(win) then
           pcall(vim.api.nvim_win_close, win, true)
         end
@@ -109,8 +97,7 @@ function M.is_running()
 end
 
 function M.is_open()
-  state.win = find_win_for_buf()
-  return state.win ~= nil
+  return find_win() ~= nil
 end
 
 function M.get_buf()
@@ -118,7 +105,7 @@ function M.get_buf()
 end
 
 function M.get_win()
-  return find_win_for_buf()
+  return find_win()
 end
 
 function M.get_job()
@@ -126,15 +113,13 @@ function M.get_job()
 end
 
 function M.focus()
-  local win = find_win_for_buf()
-  if not win then
-    return
+  local win = find_win()
+  if win then
+    vim.api.nvim_set_current_win(win)
+    vim.cmd("startinsert")
   end
-  vim.api.nvim_set_current_win(win)
-  vim.cmd("startinsert")
 end
 
---- Ctrl+h/j/k/l leave the sidebar from terminal-mode, like any other window.
 local function set_nav_keys(buf)
   if not config.get().nav_keys then
     return
@@ -148,23 +133,21 @@ local function set_nav_keys(buf)
   end
 end
 
---- grok does not persist /theme across runs, so apply the configured theme on
---- every start — but only once the prompt has rendered, or the paste is lost.
+--- grok does not persist /theme, so apply the configured theme on every start
+--- — only once the prompt has rendered, or the paste would be lost.
 local function apply_theme_when_ready(buf, job)
   local theme = config.get().theme
   if not theme or theme == "" then
     return
   end
-  local uv = vim.uv or vim.loop
-  local timer = uv.new_timer()
+  local timer = (vim.uv or vim.loop).new_timer()
   local tries = 0
   timer:start(
     500,
     300,
     vim.schedule_wrap(function()
       tries = tries + 1
-      local expired = tries > 60
-      if job ~= state.job or not vim.api.nvim_buf_is_valid(buf) or expired then
+      if job ~= state.job or not vim.api.nvim_buf_is_valid(buf) or tries > 60 then
         timer:stop()
         timer:close()
         return
@@ -179,7 +162,6 @@ local function apply_theme_when_ready(buf, job)
   )
 end
 
---- Reload buffers the TUI edited on disk whenever focus returns to them.
 local function ensure_autoread()
   if state.autoread_group or not config.get().auto_reload then
     return
@@ -196,13 +178,6 @@ local function ensure_autoread()
   })
 end
 
---- Show an existing (hidden) TUI buffer in a fresh sidebar split.
-local function show_hidden()
-  local win = open_split()
-  vim.api.nvim_win_set_buf(win, state.buf)
-  state.win = win
-end
-
 --- Open the sidebar, spawning the TUI if it is not already running.
 --- @param opts? { args?: string[] }
 function M.open(opts)
@@ -214,7 +189,7 @@ function M.open(opts)
   end
 
   if M.is_running() then
-    show_hidden()
+    vim.api.nvim_win_set_buf(open_split(), state.buf)
     M.focus()
     return
   end
@@ -234,7 +209,6 @@ function M.open(opts)
   end
 
   state.buf = buf
-  state.win = win
   state.job = job
   vim.bo[buf].bufhidden = "hide"
   vim.bo[buf].buflisted = false
@@ -246,11 +220,10 @@ end
 
 --- Hide the sidebar window; the TUI process keeps running.
 function M.hide()
-  local win = find_win_for_buf()
+  local win = find_win()
   if win then
     pcall(vim.api.nvim_win_close, win, true)
   end
-  state.win = nil
 end
 
 function M.toggle()
@@ -266,25 +239,25 @@ function M.stop()
   if state.job then
     pcall(vim.fn.jobstop, state.job)
   end
-  local win = find_win_for_buf()
+  local win = find_win()
   if win then
     pcall(vim.api.nvim_win_close, win, true)
   end
   if buf_valid() then
     pcall(vim.api.nvim_buf_delete, state.buf, { force = true })
   end
-  state.buf, state.win, state.job = nil, nil, nil
+  state.buf, state.job = nil, nil
 end
 
---- Restart the TUI with extra CLI args (new session, --resume, --continue, …).
+--- Restart the TUI with extra CLI args (--resume, --continue, …).
 --- @param args string[]|nil
 function M.restart(args)
   M.stop()
   M.open({ args = args })
 end
 
---- Paste text into the TUI prompt (bracketed paste so newlines and `@`
---- mentions land as literal prompt text). opts.submit sends Enter after.
+--- Paste text into the TUI prompt. Bracketed paste keeps newlines and
+--- @-mentions literal; opts.submit presses Enter after.
 --- @param text string
 --- @param opts? { submit?: boolean }
 function M.send_text(text, opts)

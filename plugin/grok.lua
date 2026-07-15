@@ -65,7 +65,7 @@ vim.api.nvim_create_user_command("GrokSend", function(opts)
     if opts.args and opts.args ~= "" then
       text = opts.args .. "\n" .. text
     end
-    -- Paste into the TUI prompt without submitting so instructions can follow.
+    -- No submit: let the user add instructions before pressing Enter.
     require("grok").send(text)
     return
   end

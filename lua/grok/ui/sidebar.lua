@@ -223,7 +223,6 @@ function M.open()
   vim.cmd("belowright split")
   state.input_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(state.input_win, state.input_buf)
-  -- A bit more room than a 3-line strip — feels like a real prompt.
   vim.api.nvim_win_set_height(state.input_win, 5)
   configure_input_win(state.input_win)
   map_input_submit()

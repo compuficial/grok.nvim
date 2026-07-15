@@ -4,3 +4,6 @@
 # generated
 doc/tags
 deps/
+
+# internal design/plan notes (kept local)
+docs/superpowers/
