@@ -1,0 +1,6 @@
+# agent workflow state (local only)
+.superpowers/
+
+# generated
+doc/tags
+deps/

@@ -1,0 +1,179 @@
+*grok.txt*  Grok Build inside Neovim                                *grok.nvim*
+
+Author:  The grok.nvim contributors
+License: MIT
+
+==============================================================================
+CONTENTS                                                       *grok-contents*
+
+  1. Introduction ......................................... |grok-introduction|
+  2. Requirements ......................................... |grok-requirements|
+  3. Setup ................................................ |grok-setup|
+  4. Options .............................................. |grok-options|
+  5. Commands ............................................. |grok-commands|
+  6. Keymaps .............................................. |grok-keymaps|
+  7. Terminal UI .......................................... |grok-terminal|
+  8. ACP UI (legacy) ...................................... |grok-acp|
+  9. Health ............................................... |grok-health|
+
+==============================================================================
+1. INTRODUCTION                                            *grok-introduction*
+
+grok.nvim embeds the real Grok Build TUI (the `grok` CLI) in a sidebar
+terminal split, the same way claudecode.nvim embeds Claude Code. You get the
+CLI exactly as it looks standalone — slash commands, pickers, permission
+prompts — plus Neovim commands and keymaps to drive it.
+
+A legacy buffer-based ACP chat client is available via `ui = "acp"`.
+
+==============================================================================
+2. REQUIREMENTS                                            *grok-requirements*
+
+- Neovim 0.10+ (0.11+ recommended)
+- `grok` CLI on $PATH (or set |grok-options| `tui_cmd`)
+- Optional: snacks.nvim for nicer session/model pickers
+  (falls back to |vim.ui.select()|)
+
+==============================================================================
+3. SETUP                                                          *grok-setup*
+
+>lua
+  require("grok").setup({
+    -- all fields optional; defaults shown in |grok-options|
+  })
+<
+
+lazy.nvim spec (see the README for a fuller example): >lua
+  {
+    "OWNER/grok.nvim",
+    cmd = { "Grok", "GrokFocus", "GrokSend", "GrokAdd" },
+    keys = {
+      { "<leader>Gg", "<cmd>Grok<cr>", desc = "Toggle Grok" },
+      { "<leader>Gs", ":'<,'>GrokSend<cr>", mode = "v", desc = "Send selection" },
+    },
+    opts = {},
+  }
+<
+
+==============================================================================
+4. OPTIONS                                                      *grok-options*
+
+Defaults: >lua
+  require("grok").setup({
+    ui = "terminal",           -- "terminal" (real TUI) | "acp" (legacy)
+    tui_cmd = { "grok" },      -- command for the embedded TUI
+    auto_reload = true,        -- checktime when TUI edits files on disk
+    cmd = { "grok", "agent", "stdio" }, -- acp mode agent command
+    model = nil,               -- nil → CLI default
+    cwd = nil,                 -- nil → vim.fn.getcwd()
+    permission_mode = "review",-- "review" | "auto"
+    sidebar = {
+      position = "right",      -- "right" | "left"
+      width = 0.36,            -- fraction of columns, or absolute columns
+    },
+    thoughts = "collapsed",    -- acp: "collapsed" | "expanded" | "hidden"
+    follow = { enabled = true }, -- acp auto mode follow-along
+    default_keys = false,      -- opt-in default maps (|grok-keymaps|)
+    keys_prefix = "<leader>G", -- prefix for default maps
+  })
+<
+
+`permission_mode = "auto"` starts the TUI with `--permission-mode auto`; in
+acp mode it auto-allows permission requests.
+
+==============================================================================
+5. COMMANDS                                                    *grok-commands*
+
+                                                                       *:Grok*
+:Grok                   Toggle the sidebar. In terminal mode the TUI process
+                        keeps running while hidden.
+
+                                                                  *:GrokFocus*
+:GrokFocus              Focus the sidebar, opening it if needed.
+
+                                                                    *:GrokNew*
+:GrokNew                Start a fresh session (terminal: restarts the TUI).
+
+                                                                 *:GrokResume*
+:GrokResume             Pick a past session and resume it (terminal:
+                        `--resume <id>`; acp: ACP session/load).
+
+                                                               *:GrokContinue*
+:GrokContinue           Continue the most recent session for the cwd
+                        (terminal: `--continue`).
+
+                                                                  *:GrokModel*
+:GrokModel [{model}]    Model picker (terminal: the TUI's /model picker).
+                        With {model} (tab-completes), restarts on that model.
+
+                                                                   *:GrokSend*
+:{range}GrokSend [{text}]
+                        Send the visual selection / range as prompt context.
+                        Terminal mode pastes `path:l1-l2` plus a fenced code
+                        block into the TUI prompt without submitting.
+
+                                                                    *:GrokAdd*
+:GrokAdd [{path}]       Add {path} (or the current buffer) to the prompt as
+                        an `@file` mention (terminal) or attachment (acp).
+
+                                                                 *:GrokCancel*
+:GrokCancel             Interrupt the current turn (terminal: sends <Esc>).
+
+                                                                   *:GrokStop*
+:GrokStop               Kill the agent/TUI process.
+
+                                        *:GrokAuto* *:GrokReview* *:GrokMode*
+:GrokAuto / :GrokReview / :GrokMode
+                        Set or toggle the permission mode. Terminal mode
+                        applies it on the next TUI (re)start.
+
+                                            *:GrokDiffAccept* *:GrokDiffDeny*
+:GrokDiffAccept / :GrokDiffDeny
+                        acp mode only: accept / deny the pending permission
+                        or diff review. The terminal TUI prompts inline.
+
+                                                                 *:GrokHealth*
+:GrokHealth             Run |:checkhealth| grok.
+
+==============================================================================
+6. KEYMAPS                                                      *grok-keymaps*
+
+No maps are created by default. Either define your own (lazy.nvim `keys` or
+|vim.keymap.set()|) or opt in: >lua
+  require("grok").setup({ default_keys = true })
+<
+Default maps under `keys_prefix` (default <leader>G): >
+  g  Toggle Grok        f  Focus Grok         s  (visual) Send selection
+  b  Add current buffer n  New session        r  Resume session
+  c  Continue session   x  Cancel turn        M  Pick model
+  a  Accept (acp)       d  Deny (acp)         m  Toggle review/auto
+<
+The lowercase <leader>g prefix is intentionally avoided (LazyVim git group).
+
+==============================================================================
+7. TERMINAL UI                                                 *grok-terminal*
+
+The sidebar is a normal Neovim |terminal| running the Grok Build TUI:
+
+- Type prompts directly; all TUI features work (slash commands, ctrl+s
+  session picker, worktrees, its own permission prompts).
+- |CTRL-\_CTRL-N| leaves terminal-mode; `i` re-enters it.
+- Hiding the sidebar (:Grok) keeps the process alive; :GrokStop kills it.
+- With `auto_reload` (default on), buffers edited by the TUI reload when you
+  re-enter their windows ('autoread' must be on, which is Neovim's default).
+
+==============================================================================
+8. ACP UI (LEGACY)                                                  *grok-acp*
+
+`ui = "acp"` renders a chat buffer over the Agent Client Protocol
+(`grok agent stdio`): Review/Auto permission modes, Neovim-native single-file
+diff review (y/n or :GrokDiffAccept / :GrokDiffDeny), thought collapsing, and
+follow-along. See the README for details.
+
+==============================================================================
+9. HEALTH                                                        *grok-health*
+
+Run `:checkhealth grok` to verify the CLI is executable, show its version,
+and report the active ui / model / permission mode.
+
+vim:tw=78:ts=8:noet:ft=help:norl:
