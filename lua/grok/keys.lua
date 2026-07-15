@@ -26,6 +26,7 @@ function M.default_maps(prefix)
     { mode = "n", lhs = prefix .. "r", rhs = "<cmd>GrokResume<cr>", desc = "Resume session" },
     { mode = "n", lhs = prefix .. "c", rhs = "<cmd>GrokContinue<cr>", desc = "Continue session" },
     { mode = "n", lhs = prefix .. "M", rhs = "<cmd>GrokModel<cr>", desc = "Pick model" },
+    { mode = "n", lhs = prefix .. "t", rhs = "<cmd>GrokTheme<cr>", desc = "Switch theme" },
   }
 end
 

@@ -15,6 +15,20 @@ vim.api.nvim_create_user_command("GrokContinue", function()
   require("grok").continue_session()
 end, { desc = "Continue most recent Grok session for this cwd" })
 
+vim.api.nvim_create_user_command("GrokTheme", function(opts)
+  require("grok").set_theme(opts.args ~= "" and opts.args or nil)
+end, {
+  nargs = "?",
+  complete = function(arglead)
+    -- Built-in Grok Build themes (grok 0.2.x); /theme with no arg shows the live list.
+    local themes = { "auto", "groknight", "grokday", "tokyonight", "rosepine-moon", "oscura-midnight" }
+    return vim.tbl_filter(function(t)
+      return t:find(arglead, 1, true) == 1
+    end, themes)
+  end,
+  desc = "Switch Grok TUI color theme (picker if no arg)",
+})
+
 vim.api.nvim_create_user_command("GrokHealth", function()
   vim.cmd("checkhealth grok")
 end, { desc = "Run Grok health checks" })

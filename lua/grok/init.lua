@@ -478,6 +478,19 @@ function M.resume_session()
   end)
 end
 
+--- Switch the TUI color theme (terminal mode). No arg opens the /theme
+--- picker; grok ships editor-matching themes (e.g. "tokyonight").
+--- @param theme string|nil
+function M.set_theme(theme)
+  if not ui_is_terminal() then
+    vim.notify("Grok: :GrokTheme requires ui = 'terminal'", vim.log.levels.WARN)
+    return
+  end
+  local text = (theme and theme ~= "") and ("/theme " .. theme) or "/theme"
+  terminal.send_text(text, { submit = true })
+  terminal.focus()
+end
+
 --- Continue the most recent session for this cwd (terminal mode only;
 --- acp mode falls back to the resume picker).
 function M.continue_session()

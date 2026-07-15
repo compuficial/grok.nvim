@@ -8,6 +8,12 @@ local defaults = {
   -- terminal ui: run :checktime when leaving/entering windows so buffers the
   -- TUI edited on disk reload automatically (requires 'autoread', on by default).
   auto_reload = true,
+  -- terminal ui: map Ctrl+h/j/k/l in terminal-mode to window navigation so the
+  -- sidebar behaves like any other window (keys the TUI prompt does not need).
+  nav_keys = true,
+  -- terminal ui: TUI theme applied on each start via /theme (grok does not
+  -- persist /theme). "tokyonight" matches common Neovim setups; nil = grok default.
+  theme = nil,
   cmd = { "grok", "agent", "stdio" },
   model = nil,
   cwd = nil,

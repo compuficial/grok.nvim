@@ -5,6 +5,8 @@ describe("grok.terminal", function()
 
   before_each(function()
     config.reset()
+    -- Reset grok too: its module-local `terminal` must rebind to the fresh instance.
+    package.loaded["grok"] = nil
     package.loaded["grok.terminal"] = nil
     terminal = require("grok.terminal")
     terminal._reset_for_test()
@@ -111,6 +113,75 @@ describe("grok.terminal", function()
       terminal.stop()
       assert.is_false(terminal.is_open())
       assert.is_nil(terminal.get_job())
+    end)
+  end)
+
+  describe("window navigation keys", function()
+    local function tmode_lhs(buf)
+      local set = {}
+      for _, m in ipairs(vim.api.nvim_buf_get_keymap(buf, "t")) do
+        set[m.lhs] = true
+      end
+      return set
+    end
+
+    it("maps Ctrl+h/j/k/l to wincmd in terminal mode by default", function()
+      config.setup({ tui_cmd = { "cat" } })
+      terminal.open()
+      local set = tmode_lhs(terminal.get_buf())
+      for _, key in ipairs({ "<C-H>", "<C-J>", "<C-K>", "<C-L>" }) do
+        assert.is_true(set[key] or set[key:lower()], "missing t-mode map: " .. key)
+      end
+    end)
+
+    it("respects nav_keys = false", function()
+      config.setup({ tui_cmd = { "cat" }, nav_keys = false })
+      terminal.open()
+      local set = tmode_lhs(terminal.get_buf())
+      assert.is_nil(set["<C-H>"])
+      assert.is_nil(set["<c-h>"])
+    end)
+  end)
+
+  describe("theme", function()
+    it(":GrokTheme <name> types /theme <name> into the TUI prompt", function()
+      if vim.fn.exists(":GrokTheme") == 0 then
+        vim.cmd("runtime! plugin/grok.lua")
+      end
+      config.setup({ tui_cmd = { "cat" } })
+      terminal.open()
+      vim.cmd("GrokTheme tokyonight")
+      local buf = terminal.get_buf()
+      local ok = vim.wait(2000, function()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        return table.concat(lines, "\n"):find("/theme tokyonight", 1, true) ~= nil
+      end, 50)
+      assert.is_true(ok)
+    end)
+  end)
+
+  describe("theme option", function()
+    it("applies configured theme once the TUI prompt renders", function()
+      -- Fake TUI: prints the prompt marker, then echoes stdin like the paste.
+      config.setup({ tui_cmd = { "sh", "-c", "printf '❯ '; exec cat" }, theme = "tokyonight" })
+      terminal.open()
+      local buf = terminal.get_buf()
+      local ok = vim.wait(5000, function()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        return table.concat(lines, "\n"):find("/theme tokyonight", 1, true) ~= nil
+      end, 100)
+      assert.is_true(ok)
+    end)
+
+    it("does nothing when theme is unset", function()
+      config.setup({ tui_cmd = { "sh", "-c", "printf '❯ '; exec cat" } })
+      terminal.open()
+      local buf = terminal.get_buf()
+      vim.wait(1500, function()
+        return false
+      end, 200)
+      local text = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n")
+      assert.is_nil(text:find("/theme", 1, true))
     end)
   end)
 

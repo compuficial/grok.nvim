@@ -63,6 +63,8 @@ Defaults: >lua
     ui = "terminal",           -- "terminal" (real TUI) | "acp" (legacy)
     tui_cmd = { "grok" },      -- command for the embedded TUI
     auto_reload = true,        -- checktime when TUI edits files on disk
+    nav_keys = true,           -- Ctrl+h/j/k/l window nav from the sidebar
+    theme = nil,               -- TUI theme applied on start (e.g. "tokyonight")
     cmd = { "grok", "agent", "stdio" }, -- acp mode agent command
     model = nil,               -- nil → CLI default
     cwd = nil,                 -- nil → vim.fn.getcwd()
@@ -116,6 +118,12 @@ acp mode it auto-allows permission requests.
 :GrokAdd [{path}]       Add {path} (or the current buffer) to the prompt as
                         an `@file` mention (terminal) or attachment (acp).
 
+                                                                  *:GrokTheme*
+:GrokTheme [{theme}]    Switch the TUI color theme via /theme. Grok ships
+                        editor-matching themes (tokyonight, rosepine-moon,
+                        oscura-midnight, grokday). Not persisted by grok —
+                        set the `theme` option to apply on every start.
+
                                                                  *:GrokCancel*
 :GrokCancel             Interrupt the current turn (terminal: sends <Esc>).
 
@@ -146,7 +154,8 @@ Default maps under `keys_prefix` (default <leader>G): >
   g  Toggle Grok        f  Focus Grok         s  (visual) Send selection
   b  Add current buffer n  New session        r  Resume session
   c  Continue session   x  Cancel turn        M  Pick model
-  a  Accept (acp)       d  Deny (acp)         m  Toggle review/auto
+  t  Switch theme       a  Accept (acp)       d  Deny (acp)
+  m  Toggle review/auto
 <
 The lowercase <leader>g prefix is intentionally avoided (LazyVim git group).
 
@@ -159,8 +168,12 @@ The sidebar is a normal Neovim |terminal| running the Grok Build TUI:
   session picker, worktrees, its own permission prompts).
 - |CTRL-\_CTRL-N| leaves terminal-mode; `i` re-enters it.
 - Hiding the sidebar (:Grok) keeps the process alive; :GrokStop kills it.
+- With `nav_keys` (default on), CTRL-H/J/K/L jump to adjacent windows even
+  from terminal-mode, so the sidebar behaves like any other window.
 - With `auto_reload` (default on), buffers edited by the TUI reload when you
   re-enter their windows ('autoread' must be on, which is Neovim's default).
+- The TUI paints its own theme; set `theme = "tokyonight"` (or another
+  built-in) to match your editor. |:GrokTheme| switches live.
 
 ==============================================================================
 8. ACP UI (LEGACY)                                                  *grok-acp*

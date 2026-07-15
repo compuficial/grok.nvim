@@ -134,6 +134,51 @@ function M.focus()
   vim.cmd("startinsert")
 end
 
+--- Ctrl+h/j/k/l leave the sidebar from terminal-mode, like any other window.
+local function set_nav_keys(buf)
+  if not config.get().nav_keys then
+    return
+  end
+  for _, dir in ipairs({ "h", "j", "k", "l" }) do
+    vim.keymap.set("t", "<C-" .. dir .. ">", "<Cmd>wincmd " .. dir .. "<CR>", {
+      buffer = buf,
+      silent = true,
+      desc = "Grok: go to " .. dir .. " window",
+    })
+  end
+end
+
+--- grok does not persist /theme across runs, so apply the configured theme on
+--- every start — but only once the prompt has rendered, or the paste is lost.
+local function apply_theme_when_ready(buf, job)
+  local theme = config.get().theme
+  if not theme or theme == "" then
+    return
+  end
+  local uv = vim.uv or vim.loop
+  local timer = uv.new_timer()
+  local tries = 0
+  timer:start(
+    500,
+    300,
+    vim.schedule_wrap(function()
+      tries = tries + 1
+      local expired = tries > 60
+      if job ~= state.job or not vim.api.nvim_buf_is_valid(buf) or expired then
+        timer:stop()
+        timer:close()
+        return
+      end
+      local text = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n")
+      if text:find("❯", 1, true) then
+        timer:stop()
+        timer:close()
+        M.send_text("/theme " .. theme, { submit = true })
+      end
+    end)
+  )
+end
+
 --- Reload buffers the TUI edited on disk whenever focus returns to them.
 local function ensure_autoread()
   if state.autoread_group or not config.get().auto_reload then
@@ -193,7 +238,9 @@ function M.open(opts)
   state.job = job
   vim.bo[buf].bufhidden = "hide"
   vim.bo[buf].buflisted = false
+  set_nav_keys(buf)
   ensure_autoread()
+  apply_theme_when_ready(buf, job)
   M.focus()
 end
 

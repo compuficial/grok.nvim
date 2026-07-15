@@ -77,6 +77,8 @@ require("grok").setup({
   ui = "terminal",             -- "terminal" (real Grok TUI) | "acp" (legacy chat buffers)
   tui_cmd = { "grok" },        -- command for the embedded TUI
   auto_reload = true,          -- reload buffers the TUI edits on disk
+  nav_keys = true,             -- Ctrl+h/j/k/l window navigation from the sidebar
+  theme = nil,                 -- TUI theme applied on start, e.g. "tokyonight"
   cmd = { "grok", "agent", "stdio" }, -- acp mode only
   model = nil,                 -- nil → CLI default
   cwd = nil,                   -- nil → vim.fn.getcwd()
@@ -98,6 +100,10 @@ require("grok").setup({
 
 `:Grok` opens the real Grok Build TUI in a terminal split — you get the CLI exactly as it looks standalone: slash commands (`/model`, `/dashboard`, …), its own permission prompts, session pickers, worktrees. `:Grok` again hides the window while the process keeps running. When the TUI edits files, your buffers reload automatically as you re-enter their windows (`auto_reload`).
 
+**Match your colorscheme:** the Grok TUI paints its own truecolor theme (GrokNight), which can clash with your editor. Grok ships editor-matching themes — `tokyonight`, `rosepine-moon`, `oscura-midnight`, `grokday` — switch live with `:GrokTheme` (picker) or `:GrokTheme tokyonight`. Since grok does not persist `/theme`, set `theme = "tokyonight"` in `setup()` to apply it on every start.
+
+**Window navigation:** `Ctrl+h/j/k/l` work from inside the sidebar (terminal-mode maps, `nav_keys = true`), so it behaves like any other window.
+
 `:help grok` has the full reference.
 
 In acp mode the sidebar is instead a Neovim chat buffer with **Review**/**Auto** permission modes (`:GrokMode`, `:GrokAuto` / `:GrokReview`) and native diff review.
@@ -114,6 +120,7 @@ In acp mode the sidebar is instead a Neovim chat buffer with **Review**/**Auto**
 | `:GrokModel` | `/model` picker in the TUI (`:GrokModel <Tab>` completes ids; with arg restarts on that model) | Model picker; restarts agent |
 | `:GrokSend` | Paste visual selection into the TUI prompt | Send selection as prompt context |
 | `:GrokAdd [path]` | Paste `@file` mention into the TUI prompt | Attach current buffer to next prompt |
+| `:GrokTheme [name]` | Switch TUI theme (`/theme`; tab-completes) | — |
 | `:GrokCancel` | Send Esc (interrupt turn) | Cancel current turn |
 | `:GrokAuto` / `:GrokReview` / `:GrokMode` | Sets permission mode for the next TUI (re)start | Set / toggle mode live |
 | `:GrokDiffAccept` / `:GrokDiffDeny` | — (the TUI prompts inline) | Accept / deny pending permission |
@@ -147,6 +154,7 @@ With the default prefix (`<leader>G`):
 | `<leader>Gr` | n | Resume session |
 | `<leader>Gc` | n | Continue session |
 | `<leader>GM` | n | Pick model |
+| `<leader>Gt` | n | Switch theme |
 
 Terminal sidebar: you're in a normal Neovim terminal — `Ctrl-\ Ctrl-N` for normal mode, `i` to type again. ACP prompt buffer: `<CR>` send, `<C-c>` cancel turn.
 
