@@ -86,6 +86,8 @@ CLI. `:Grok` again hides the window; the process keeps running.
   prompt; `:GrokAdd` mentions the current file.
 - **Reloading**: buffers the TUI edits on disk reload when you re-enter their
   windows.
+- **Notifications**: grok's turn-complete/approval notifications surface via
+  `vim.notify` instead of leaking terminal escape codes.
 
 `:help grok` has the full reference.
 

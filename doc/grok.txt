@@ -184,6 +184,8 @@ The sidebar is a normal Neovim |terminal| running the Grok Build TUI:
   re-enter their windows ('autoread' must be on, which is Neovim's default).
 - The TUI paints its own theme; set `theme = "tokyonight"` (or another
   built-in) to match your editor. |:GrokTheme| switches live.
+- grok's terminal notifications (turn complete, approval required) are
+  translated to |vim.notify()|.
 
 ==============================================================================
 8. HEALTH                                                        *grok-health*

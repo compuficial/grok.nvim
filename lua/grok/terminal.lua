@@ -113,6 +113,40 @@ local function open_split()
   return win
 end
 
+--- grok wraps notifications in tmux passthrough when it sees $TMUX, which
+--- Neovim's terminal cannot parse (the tail leaks as text). Neovim is the
+--- terminal here, so strip the inherited tmux identity. Pure.
+--- @param cmd string[]
+--- @return string[]
+function M.spawn_argv(cmd)
+  if not vim.env.TMUX then
+    return cmd
+  end
+  local argv = { "env", "-u", "TMUX", "-u", "TMUX_PANE" }
+  vim.list_extend(argv, cmd)
+  return argv
+end
+
+--- OSC 777 (notify;title;body) and OSC 9 (body) from the TUI → vim.notify.
+local function forward_notifications(buf)
+  vim.api.nvim_create_autocmd("TermRequest", {
+    buffer = buf,
+    callback = function(ev)
+      local seq = type(ev.data) == "table" and ev.data.sequence or ev.data
+      if type(seq) ~= "string" then
+        return
+      end
+      local title, body = seq:match("^\27%]777;notify;([^;]*);(.*)$")
+      if not body then
+        body = seq:match("^\27%]9;(.*)$")
+      end
+      if body and body ~= "" then
+        vim.notify(body, vim.log.levels.INFO, { title = title ~= "" and title or "Grok" })
+      end
+    end,
+  })
+end
+
 local function spawn(cmd)
   local opts = {
     cwd = config.get().cwd or vim.fn.getcwd(),
@@ -132,11 +166,12 @@ local function spawn(cmd)
       end)
     end,
   }
+  local argv = M.spawn_argv(cmd)
   if vim.fn.has("nvim-0.11") == 1 then
     opts.term = true
-    return vim.fn.jobstart(cmd, opts)
+    return vim.fn.jobstart(argv, opts)
   end
-  return vim.fn.termopen(cmd, opts)
+  return vim.fn.termopen(argv, opts)
 end
 
 function M.is_running()
@@ -261,6 +296,7 @@ function M.open(opts)
   vim.bo[buf].bufhidden = "hide"
   vim.bo[buf].buflisted = false
   set_nav_keys(buf)
+  forward_notifications(buf)
   ensure_autoread()
   apply_theme_when_ready(buf, job)
   M.focus()

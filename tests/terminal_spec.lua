@@ -56,6 +56,44 @@ describe("grok.terminal", function()
     end)
   end)
 
+  describe("notifications", function()
+    it("spawn_argv strips TMUX so grok emits raw (parseable) notifications", function()
+      local saved = vim.env.TMUX
+      vim.env.TMUX = "/tmp/fake-tmux-sock,123,0"
+      local argv = terminal.spawn_argv({ "grok" })
+      vim.env.TMUX = saved
+      assert.are.same({ "env", "-u", "TMUX", "-u", "TMUX_PANE", "grok" }, argv)
+    end)
+
+    it("spawn_argv is a no-op outside tmux", function()
+      local saved = vim.env.TMUX
+      vim.env.TMUX = nil
+      local argv = terminal.spawn_argv({ "grok" })
+      vim.env.TMUX = saved
+      assert.are.same({ "grok" }, argv)
+    end)
+
+    it("translates OSC 777 notify sequences into vim.notify", function()
+      setup_cfg({ tui_cmd = { "sh", "-c", [[printf '\033]777;notify;Grok;Turn complete in 48s.\a'; exec cat]] } })
+      local caught = {}
+      local orig = vim.notify
+      vim.notify = function(msg, level, opts)
+        table.insert(caught, { msg = msg, opts = opts or {} })
+      end
+      terminal.open()
+      local ok = vim.wait(3000, function()
+        return #caught > 0
+      end, 50)
+      vim.notify = orig
+      assert.is_true(ok)
+      assert.are.equal("Turn complete in 48s.", caught[1].msg)
+      assert.are.equal("Grok", caught[1].opts.title)
+      -- and nothing leaked into the terminal as text
+      local text = table.concat(vim.api.nvim_buf_get_lines(terminal.get_buf(), 0, -1, false), "\n")
+      assert.is_nil(text:find("777;notify", 1, true))
+    end)
+  end)
+
   describe("ensure_hook", function()
     it("writes the managed hook file when diff_review is on", function()
       setup_cfg({ diff_review = true })

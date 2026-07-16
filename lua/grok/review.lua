@@ -93,6 +93,11 @@ function M._show_next()
 end
 
 local function apply_search_replace(text, old, new, replace_all)
+  -- Empty pattern matches at every position (find returns e < s); replace_all
+  -- would spin forever. Treat as unreviewable and fail open.
+  if type(old) ~= "string" or old == "" then
+    return nil
+  end
   local s, e = text:find(old, 1, true)
   if not s then
     return nil

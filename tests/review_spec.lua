@@ -101,6 +101,20 @@ describe("grok.review", function()
     assert.are.equal("", review._rpc(b64("not json")))
   end)
 
+  it("returns empty for empty old_string (avoids hang on zero-width match)", function()
+    local file = tmp .. "/empty-old.txt"
+    vim.fn.writefile({ "hello" }, file)
+    assert.are.equal(
+      "",
+      review._rpc(payload("search_replace", {
+        file_path = file,
+        old_string = "",
+        new_string = "x",
+        replace_all = true,
+      }))
+    )
+  end)
+
   it("queues concurrent reviews and shows them one at a time", function()
     local id1 = review._rpc(payload("write", { file_path = tmp .. "/a.txt", content = "a\n" }))
     local id2 = review._rpc(payload("write", { file_path = tmp .. "/b.txt", content = "b\n" }))
