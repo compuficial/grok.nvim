@@ -58,6 +58,8 @@ Defaults: >lua
   require("grok").setup({
     tui_cmd = { "grok" },      -- command for the embedded TUI
     theme = nil,               -- TUI theme applied on start (e.g. "tokyonight")
+    diff_review = true,        -- gate agent file edits behind a Neovim diff
+    review_timeout = 240,      -- seconds before an unanswered review is denied
     nav_keys = true,           -- Ctrl+h/j/k/l window nav from the sidebar
     auto_reload = true,        -- checktime when the TUI edits files on disk
     model = nil,               -- nil → CLI default
@@ -114,8 +116,14 @@ Defaults: >lua
 :GrokAdd [{path}]       Paste an `@file` mention for {path} (or the current
                         buffer) into the TUI prompt.
 
+                                            *:GrokDiffAccept* *:GrokDiffDeny*
+:GrokDiffAccept / :GrokDiffDeny
+                        Accept / deny the pending diff review (same as `y` /
+                        `n` inside the review diff).
+
                                                                  *:GrokCancel*
-:GrokCancel             Interrupt the current turn (sends <Esc>).
+:GrokCancel             Interrupt the current turn: denies pending diff
+                        reviews and sends <Esc> to the TUI.
 
                                                                    *:GrokStop*
 :GrokStop               Kill the TUI process.
@@ -137,14 +145,32 @@ No maps are created by default. Either define your own (lazy.nvim `keys` or
 <
 Default maps under `keys_prefix` (default <leader>G): >
   g  Toggle Grok        f  Focus Grok         s  (visual) Send selection
-  b  Add current buffer n  New session        r  Resume session
-  c  Continue session   x  Cancel turn        M  Pick model
-  t  Switch theme       m  Toggle review/auto
+  b  Add current buffer a  Accept diff review d  Deny diff review
+  n  New session        r  Resume session     c  Continue session
+  x  Cancel turn        M  Pick model         t  Switch theme
+  m  Toggle review/auto
 <
 The lowercase <leader>g prefix is intentionally avoided (LazyVim git group).
 
 ==============================================================================
 7. SIDEBAR                                                      *grok-sidebar*
+
+                                                            *grok-diff-review*
+Diff review ~
+
+With `diff_review` (default on), agent file edits pause and open as a native
+Neovim diff in a new tab: current file on the left, proposed on the right.
+`y` (or |:GrokDiffAccept|) lets the edit apply; `n`, |:GrokDiffDeny|, or
+closing the diff rejects it and the agent is told why. Unanswered reviews
+are denied after `review_timeout` seconds. Other tools (shell commands, web
+fetches) keep the TUI's own permission prompts.
+
+This works through a grok `PreToolUse` hook the plugin manages at
+`~/.grok/hooks/grok-nvim.json`. The hook is inert outside Neovim (plain
+`grok` in a terminal is unchanged) and is removed when `diff_review = false`.
+While a review is pending the agent's turn waits.
+
+Terminal ~
 
 The sidebar is a normal Neovim |terminal| running the Grok Build TUI:
 

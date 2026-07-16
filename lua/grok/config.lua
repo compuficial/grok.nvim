@@ -1,22 +1,24 @@
 local M = {}
 
 local defaults = {
-  -- "terminal": the real Grok Build TUI in a sidebar. "acp": legacy chat buffers.
-  ui = "terminal",
   tui_cmd = { "grok" },
-  -- terminal ui: checktime on focus changes so TUI file edits reload ('autoread').
-  auto_reload = true,
-  -- terminal ui: Ctrl+h/j/k/l window navigation from terminal-mode.
-  nav_keys = true,
-  -- terminal ui: theme applied via /theme on each start (grok does not persist it).
-  theme = nil,
-  cmd = { "grok", "agent", "stdio" },
   model = nil,
   cwd = nil,
+  -- terminal ui: theme applied via /theme on each start (grok does not persist it).
+  theme = nil,
+  -- gate agent file edits behind a native Neovim diff (PreToolUse hook).
+  diff_review = true,
+  -- seconds before an unanswered diff review is denied.
+  review_timeout = 240,
+  -- where the managed PreToolUse hook file lives (grok's global hooks dir).
+  hooks_dir = vim.fn.expand("~/.grok/hooks"),
+  -- Ctrl+h/j/k/l window navigation from terminal-mode.
+  nav_keys = true,
+  -- checktime on focus changes so TUI file edits reload ('autoread').
+  auto_reload = true,
+  -- "auto" starts the TUI with --permission-mode auto.
   permission_mode = "review",
   sidebar = { position = "right", width = 0.36 },
-  thoughts = "collapsed",
-  follow = { enabled = true },
   -- Used when setup({ default_keys = true }). Capital G avoids LazyVim's
   -- <leader>g git maps (lazygit, gitsigns, snacks git_*, etc.).
   keys_prefix = "<leader>G",
@@ -42,14 +44,8 @@ end
 function M.setup(opts)
   opts = opts or {}
   local next_cfg = deep_merge(vim.deepcopy(defaults), opts)
-  if next_cfg.ui ~= "terminal" and next_cfg.ui ~= "acp" then
-    error("grok.nvim: ui must be 'terminal' or 'acp'")
-  end
   if next_cfg.permission_mode ~= "review" and next_cfg.permission_mode ~= "auto" then
     error("grok.nvim: permission_mode must be 'review' or 'auto'")
-  end
-  if next_cfg.thoughts ~= "collapsed" and next_cfg.thoughts ~= "expanded" and next_cfg.thoughts ~= "hidden" then
-    error("grok.nvim: thoughts must be collapsed|expanded|hidden")
   end
   current = next_cfg
   return current
@@ -59,7 +55,7 @@ function M.get()
   return current
 end
 
---- Prefix for optional default maps and buffer-local accept/deny leaders.
+--- Prefix for the optional default maps.
 --- @return string
 function M.keys_prefix()
   local p = current.keys_prefix
@@ -67,42 +63,6 @@ function M.keys_prefix()
     return "<leader>G"
   end
   return p
-end
-
---- Accept / deny leader maps derived from keys_prefix (e.g. <leader>Ga / <leader>Gd).
---- @return string, string
-function M.accept_deny_keys()
-  local p = M.keys_prefix()
-  return p .. "a", p .. "d"
-end
-
---- Return a copy of `cmd` with `--model <model>` inserted after `agent`
---- (or before `stdio` if `agent` is absent). Pure; does not mutate config.
---- @param cmd string[]
---- @param model string|nil
---- @return string[]
-function M.cmd_with_model(cmd, model)
-  local out = vim.deepcopy(cmd or {})
-  if not model or model == "" then
-    return out
-  end
-  for i, part in ipairs(out) do
-    if part == "agent" then
-      table.insert(out, i + 1, "--model")
-      table.insert(out, i + 2, model)
-      return out
-    end
-  end
-  for i, part in ipairs(out) do
-    if part == "stdio" then
-      table.insert(out, i, "--model")
-      table.insert(out, i + 1, model)
-      return out
-    end
-  end
-  table.insert(out, "--model")
-  table.insert(out, model)
-  return out
 end
 
 return M

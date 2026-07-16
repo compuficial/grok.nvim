@@ -4,6 +4,7 @@
 split, with commands and keymaps to drive it from your editor.
 
 - Full TUI: slash commands, pickers, permission prompts, worktrees
+- **Native diff review**: agent file edits open as a Neovim diff — `y` applies, `n` rejects
 - Editor-matching themes (`tokyonight`, `rosepine-moon`, `oscura-midnight`, …)
 - `Ctrl+h/j/k/l` window navigation straight from the sidebar
 - Buffers reload automatically when the agent edits files
@@ -51,6 +52,8 @@ Defaults:
 require("grok").setup({
   tui_cmd = { "grok" },       -- command for the embedded TUI
   theme = nil,                -- TUI theme applied on start, e.g. "tokyonight"
+  diff_review = true,         -- gate agent file edits behind a Neovim diff
+  review_timeout = 240,       -- seconds before an unanswered review is denied
   nav_keys = true,            -- Ctrl+h/j/k/l window navigation from the sidebar
   auto_reload = true,         -- reload buffers the TUI edits on disk
   model = nil,                -- nil → CLI default
@@ -67,6 +70,13 @@ require("grok").setup({
 `:Grok` opens the Grok Build TUI in a sidebar — exactly like the standalone
 CLI. `:Grok` again hides the window; the process keeps running.
 
+- **Diff review**: when the agent wants to edit a file, the proposed change
+  opens as a native Neovim diff. `y` (or `:GrokDiffAccept`) applies it, `n`
+  (or `:GrokDiffDeny`, or closing the diff) rejects it and the agent is told
+  why. Everything else (shell commands, web fetches) keeps grok's own TUI
+  prompts. Powered by a grok `PreToolUse` hook the plugin manages at
+  `~/.grok/hooks/grok-nvim.json`; the hook is inert outside Neovim and is
+  removed when `diff_review = false`.
 - **Colorscheme**: the TUI paints its own theme (GrokNight). Switch live with
   `:GrokTheme`; set `theme = "tokyonight"` to apply it on every start (grok
   does not persist `/theme`).
@@ -92,7 +102,8 @@ CLI. `:Grok` again hides the window; the process keeps running.
 | `:GrokTheme [name]` | Switch TUI theme (tab-completes) |
 | `:GrokSend` | Paste the visual selection into the prompt |
 | `:GrokAdd [path]` | Paste an `@file` mention into the prompt |
-| `:GrokCancel` | Interrupt the current turn |
+| `:GrokDiffAccept` / `:GrokDiffDeny` | Accept / deny the pending diff review |
+| `:GrokCancel` | Interrupt the current turn (denies pending reviews) |
 | `:GrokAuto` / `:GrokReview` / `:GrokMode` | Permission mode for the next TUI start |
 | `:GrokStop` | Kill the TUI process |
 | `:GrokHealth` | `:checkhealth grok` |
@@ -101,8 +112,8 @@ CLI. `:Grok` again hides the window; the process keeps running.
 
 Off by default; enable with `setup({ default_keys = true })`. Under
 `keys_prefix` (default `<leader>G`): `g` toggle, `f` focus, `s` send selection
-(visual), `b` add buffer, `n` new, `r` resume, `c` continue, `M` model,
-`t` theme, `x` cancel, `m` review/auto.
+(visual), `b` add buffer, `a`/`d` accept/deny diff review, `n` new, `r` resume,
+`c` continue, `M` model, `t` theme, `x` cancel, `m` review/auto.
 
 ## Lua API
 
@@ -112,6 +123,7 @@ grok.setup(opts)
 grok.toggle() / grok.open() / grok.close() / grok.focus()
 grok.send(text, { submit = true })
 grok.cancel() / grok.stop()
+grok.accept_permission() / grok.deny_permission()  -- diff review
 grok.new_session() / grok.resume_session() / grok.continue_session()
 grok.set_model(name?)  -- nil → picker
 grok.set_theme(name?)  -- nil → picker

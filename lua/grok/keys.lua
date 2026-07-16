@@ -18,8 +18,8 @@ function M.default_maps(prefix)
     { mode = "n", lhs = prefix .. "f", rhs = "<cmd>GrokFocus<cr>", desc = "Focus Grok" },
     { mode = "v", lhs = prefix .. "s", rhs = ":'<,'>GrokSend<cr>", desc = "Send selection" },
     { mode = "n", lhs = prefix .. "b", rhs = "<cmd>GrokAdd<cr>", desc = "Add current buffer" },
-    { mode = "n", lhs = prefix .. "a", rhs = "<cmd>GrokDiffAccept<cr>", desc = "Accept permission / diff" },
-    { mode = "n", lhs = prefix .. "d", rhs = "<cmd>GrokDiffDeny<cr>", desc = "Deny permission / diff" },
+    { mode = "n", lhs = prefix .. "a", rhs = "<cmd>GrokDiffAccept<cr>", desc = "Accept diff review" },
+    { mode = "n", lhs = prefix .. "d", rhs = "<cmd>GrokDiffDeny<cr>", desc = "Deny diff review" },
     { mode = "n", lhs = prefix .. "m", rhs = "<cmd>GrokMode<cr>", desc = "Toggle review/auto" },
     { mode = "n", lhs = prefix .. "x", rhs = "<cmd>GrokCancel<cr>", desc = "Cancel turn" },
     { mode = "n", lhs = prefix .. "n", rhs = "<cmd>GrokNew<cr>", desc = "New session" },
@@ -28,13 +28,6 @@ function M.default_maps(prefix)
     { mode = "n", lhs = prefix .. "M", rhs = "<cmd>GrokModel<cr>", desc = "Pick model" },
     { mode = "n", lhs = prefix .. "t", rhs = "<cmd>GrokTheme<cr>", desc = "Switch theme" },
   }
-end
-
---- Buffer-local accept/deny chords used on chat/review surfaces.
---- @return string[] never includes bare "a" or "d"
-function M.buffer_accept_deny()
-  local accept_lhs, deny_lhs = config.accept_deny_keys()
-  return { "y", "n", accept_lhs, deny_lhs }
 end
 
 --- True if lhs is a LazyVim git-group chord we must not claim by default.

@@ -2,9 +2,21 @@ local config = require("grok.config")
 
 describe("grok.terminal", function()
   local terminal
+  local hooks_dir
+
+  --- config.setup for fake-TUI tests: isolated hooks dir, and no diff_review
+  --- flags (the stand-in commands like `cat` reject --permission-mode).
+  local function setup_cfg(opts)
+    opts.hooks_dir = opts.hooks_dir or hooks_dir
+    if opts.diff_review == nil then
+      opts.diff_review = false
+    end
+    return config.setup(opts)
+  end
 
   before_each(function()
     config.reset()
+    hooks_dir = vim.fn.tempname()
     -- Reset grok too: its module-local `terminal` must rebind to the fresh instance.
     package.loaded["grok"] = nil
     package.loaded["grok.terminal"] = nil
@@ -14,53 +26,61 @@ describe("grok.terminal", function()
 
   after_each(function()
     terminal._reset_for_test()
-  end)
-
-  describe("config", function()
-    it("defaults to the terminal ui with the grok TUI command", function()
-      local c = config.setup({})
-      assert.are.equal("terminal", c.ui)
-      assert.are.same({ "grok" }, c.tui_cmd)
-    end)
-
-    it("accepts ui = 'acp' for the legacy sidebar", function()
-      local c = config.setup({ ui = "acp" })
-      assert.are.equal("acp", c.ui)
-    end)
-
-    it("rejects unknown ui values", function()
-      assert.has_error(function()
-        config.setup({ ui = "webview" })
-      end)
-    end)
+    vim.fn.delete(hooks_dir, "rf")
   end)
 
   describe("build_cmd", function()
-    it("returns the plain TUI command by default", function()
+    it("runs acceptEdits by default (the Neovim diff gate reviews edits)", function()
       config.setup({})
+      assert.are.same({ "grok", "--permission-mode", "acceptEdits" }, terminal.build_cmd())
+    end)
+
+    it("returns the plain TUI command when diff_review is off", function()
+      config.setup({ diff_review = false })
       assert.are.same({ "grok" }, terminal.build_cmd())
     end)
 
     it("appends --model when a model is configured", function()
-      config.setup({ model = "grok-4.5" })
+      config.setup({ model = "grok-4.5", diff_review = false })
       assert.are.same({ "grok", "--model", "grok-4.5" }, terminal.build_cmd())
     end)
 
-    it("maps permission_mode auto to --permission-mode auto", function()
+    it("permission_mode auto wins over acceptEdits", function()
       config.setup({ permission_mode = "auto" })
       assert.are.same({ "grok", "--permission-mode", "auto" }, terminal.build_cmd())
     end)
 
     it("appends extra args (e.g. --resume)", function()
-      config.setup({})
+      config.setup({ diff_review = false })
       assert.are.same({ "grok", "--resume" }, terminal.build_cmd({ "--resume" }))
+    end)
+  end)
+
+  describe("ensure_hook", function()
+    it("writes the managed hook file when diff_review is on", function()
+      setup_cfg({ diff_review = true })
+      terminal.ensure_hook()
+      local hook_file = hooks_dir .. "/grok-nvim.json"
+      assert.are.equal(1, vim.fn.filereadable(hook_file))
+      local content = table.concat(vim.fn.readfile(hook_file), "\n")
+      assert.is_truthy(content:find("write|search_replace", 1, true))
+      assert.is_truthy(content:find("scripts/grok-hook.sh", 1, true))
+      assert.is_truthy(content:find("GROK_NVIM_REVIEW_TIMEOUT", 1, true))
+    end)
+
+    it("removes the hook file when diff_review is off", function()
+      setup_cfg({ diff_review = true })
+      terminal.ensure_hook()
+      setup_cfg({ diff_review = false })
+      terminal.ensure_hook()
+      assert.are.equal(0, vim.fn.filereadable(hooks_dir .. "/grok-nvim.json"))
     end)
   end)
 
   describe("lifecycle", function()
     before_each(function()
       -- A quiet long-running command stands in for the grok TUI.
-      config.setup({ tui_cmd = { "cat" } })
+      setup_cfg({ tui_cmd = { "cat" } })
     end)
 
     it("open creates a right-hand terminal sidebar with a running job", function()
@@ -126,7 +146,7 @@ describe("grok.terminal", function()
     end
 
     it("maps Ctrl+h/j/k/l to wincmd in terminal mode by default", function()
-      config.setup({ tui_cmd = { "cat" } })
+      setup_cfg({ tui_cmd = { "cat" } })
       terminal.open()
       local set = tmode_lhs(terminal.get_buf())
       for _, key in ipairs({ "<C-H>", "<C-J>", "<C-K>", "<C-L>" }) do
@@ -135,7 +155,7 @@ describe("grok.terminal", function()
     end)
 
     it("respects nav_keys = false", function()
-      config.setup({ tui_cmd = { "cat" }, nav_keys = false })
+      setup_cfg({ tui_cmd = { "cat" }, nav_keys = false })
       terminal.open()
       local set = tmode_lhs(terminal.get_buf())
       assert.is_nil(set["<C-H>"])
@@ -148,7 +168,7 @@ describe("grok.terminal", function()
       if vim.fn.exists(":GrokTheme") == 0 then
         vim.cmd("runtime! plugin/grok.lua")
       end
-      config.setup({ tui_cmd = { "cat" } })
+      setup_cfg({ tui_cmd = { "cat" } })
       terminal.open()
       vim.cmd("GrokTheme tokyonight")
       local buf = terminal.get_buf()
@@ -163,7 +183,7 @@ describe("grok.terminal", function()
   describe("theme option", function()
     it("applies configured theme once the TUI prompt renders", function()
       -- Fake TUI: prints the prompt marker, then echoes stdin like the paste.
-      config.setup({ tui_cmd = { "sh", "-c", "printf '❯ '; exec cat" }, theme = "tokyonight" })
+      setup_cfg({ tui_cmd = { "sh", "-c", "printf '❯ '; exec cat" }, theme = "tokyonight" })
       terminal.open()
       local buf = terminal.get_buf()
       local ok = vim.wait(5000, function()
@@ -174,7 +194,7 @@ describe("grok.terminal", function()
     end)
 
     it("does nothing when theme is unset", function()
-      config.setup({ tui_cmd = { "sh", "-c", "printf '❯ '; exec cat" } })
+      setup_cfg({ tui_cmd = { "sh", "-c", "printf '❯ '; exec cat" } })
       terminal.open()
       local buf = terminal.get_buf()
       vim.wait(1500, function()
@@ -187,7 +207,7 @@ describe("grok.terminal", function()
 
   describe("auto reload", function()
     it("defaults on and registers checktime autocmds when the TUI opens", function()
-      config.setup({ tui_cmd = { "cat" } })
+      setup_cfg({ tui_cmd = { "cat" } })
       assert.is_true(config.get().auto_reload)
       terminal.open()
       local aus = vim.api.nvim_get_autocmds({ group = "GrokTUIReload" })
@@ -195,7 +215,7 @@ describe("grok.terminal", function()
     end)
 
     it("registers nothing when auto_reload = false", function()
-      config.setup({ tui_cmd = { "cat" }, auto_reload = false })
+      setup_cfg({ tui_cmd = { "cat" }, auto_reload = false })
       terminal.open()
       local ok, aus = pcall(vim.api.nvim_get_autocmds, { group = "GrokTUIReload" })
       assert.is_true(not ok or #aus == 0)
@@ -207,7 +227,7 @@ describe("grok.terminal", function()
     local restarts
 
     before_each(function()
-      config.setup({ tui_cmd = { "cat" } })
+      setup_cfg({ tui_cmd = { "cat" } })
       package.loaded["grok"] = nil
       grok = require("grok")
       restarts = {}

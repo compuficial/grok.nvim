@@ -34,6 +34,9 @@ local function sidebar_width()
 end
 
 --- Full TUI command: tui_cmd + model + permission mode + extra args. Pure.
+--- With diff_review, review mode runs as acceptEdits: the Neovim diff gate
+--- decides edits (grok's permission system won't re-prompt), everything
+--- else keeps the TUI's own prompts.
 --- @param extra_args string[]|nil
 --- @return string[]
 function M.build_cmd(extra_args)
@@ -46,11 +49,55 @@ function M.build_cmd(extra_args)
   if cfg.permission_mode == "auto" then
     table.insert(cmd, "--permission-mode")
     table.insert(cmd, "auto")
+  elseif cfg.diff_review then
+    table.insert(cmd, "--permission-mode")
+    table.insert(cmd, "acceptEdits")
   end
   for _, a in ipairs(extra_args or {}) do
     table.insert(cmd, a)
   end
   return cmd
+end
+
+local function plugin_root()
+  return vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":h:h:h")
+end
+
+--- Install (or remove) the managed PreToolUse hook file. Global grok hooks
+--- load at session start and are always trusted; the script no-ops without
+--- $NVIM, so plain-terminal grok is unaffected.
+function M.ensure_hook()
+  local cfg = config.get()
+  local hook_file = cfg.hooks_dir .. "/grok-nvim.json"
+  if not cfg.diff_review then
+    if vim.fn.filereadable(hook_file) == 1 then
+      vim.fn.delete(hook_file)
+    end
+    return
+  end
+  local timeout = cfg.review_timeout or 240
+  local content = vim.json.encode({
+    hooks = {
+      PreToolUse = {
+        {
+          matcher = "write|search_replace",
+          hooks = {
+            {
+              type = "command",
+              command = plugin_root() .. "/scripts/grok-hook.sh",
+              timeout = timeout + 20,
+              env = { GROK_NVIM_REVIEW_TIMEOUT = tostring(timeout) },
+            },
+          },
+        },
+      },
+    },
+  })
+  local existing = vim.fn.filereadable(hook_file) == 1 and table.concat(vim.fn.readfile(hook_file), "\n") or nil
+  if existing ~= content then
+    vim.fn.mkdir(cfg.hooks_dir, "p")
+    vim.fn.writefile({ content }, hook_file)
+  end
 end
 
 local function open_split()
@@ -194,6 +241,7 @@ function M.open(opts)
     return
   end
 
+  M.ensure_hook()
   local win = open_split()
   vim.api.nvim_win_call(win, function()
     vim.cmd("enew")

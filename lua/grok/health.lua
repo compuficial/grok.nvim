@@ -3,30 +3,21 @@ local M = {}
 function M.check()
   vim.health.start("grok.nvim")
   local cfg = require("grok.config").get()
-  vim.health.info(
-    "ui: " .. tostring(cfg.ui) .. (cfg.ui == "terminal" and " (embedded Grok Build TUI)" or " (ACP chat buffer)")
-  )
-  local exe = cfg.ui == "terminal" and (cfg.tui_cmd or { "grok" })[1] or cfg.cmd[1]
+  local exe = (cfg.tui_cmd or { "grok" })[1]
 
   if vim.fn.executable(exe) == 1 then
     vim.health.ok(exe .. " is executable")
-    -- Optional version probe (non-fatal if unsupported)
     local ok, out = pcall(function()
       return vim.fn.system({ exe, "--version" })
     end)
     if ok and type(out) == "string" and out ~= "" and vim.v.shell_error == 0 then
-      local line = vim.split(out, "\n", { plain = true })[1] or out
-      line = vim.trim(line)
+      local line = vim.trim(vim.split(out, "\n", { plain = true })[1] or "")
       if line ~= "" then
-        vim.health.ok("agent version: " .. line)
-      else
-        vim.health.info("agent --version returned empty output")
+        vim.health.ok("version: " .. line)
       end
-    else
-      vim.health.info(exe .. " --version not available (ok if older CLI)")
     end
   else
-    vim.health.error(exe .. " not found on PATH (set opts.cmd)")
+    vim.health.error(exe .. " not found on PATH (set opts.tui_cmd)")
   end
 
   if vim.fn.has("nvim-0.10") == 1 then
@@ -35,13 +26,19 @@ function M.check()
     vim.health.warn("Neovim 0.10+ recommended")
   end
 
-  local mode = require("grok.mode").get()
-  vim.health.info("permission_mode (runtime): " .. tostring(mode))
-  if cfg.model and cfg.model ~= "" then
-    vim.health.info("model: " .. tostring(cfg.model))
+  if cfg.diff_review then
+    local hook_file = cfg.hooks_dir .. "/grok-nvim.json"
+    if vim.fn.filereadable(hook_file) == 1 then
+      vim.health.ok("diff review hook installed: " .. hook_file)
+    else
+      vim.health.info("diff review hook not yet installed (written on first :Grok)")
+    end
   else
-    vim.health.info("model: (CLI default)")
+    vim.health.info("diff_review: off")
   end
+
+  vim.health.info("permission_mode: " .. tostring(cfg.permission_mode))
+  vim.health.info("model: " .. (cfg.model and cfg.model ~= "" and cfg.model or "(CLI default)"))
 end
 
 return M

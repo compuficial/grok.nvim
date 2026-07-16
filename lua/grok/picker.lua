@@ -13,8 +13,7 @@ local function system(cmd)
 end
 
 local function grok_bin()
-  local cfg = config.get()
-  local cmd = cfg.ui == "terminal" and cfg.tui_cmd or cfg.cmd
+  local cmd = config.get().tui_cmd
   if type(cmd) == "table" and cmd[1] and cmd[1] ~= "" then
     return cmd[1]
   end

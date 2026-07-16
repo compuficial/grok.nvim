@@ -32,31 +32,10 @@ describe("grok.keys LazyVim-safe defaults", function()
     end
     assert.are.equal("<leader>Gg", by_desc["Toggle Grok"].lhs)
     assert.are.equal("v", by_desc["Send selection"].mode)
-    assert.are.equal("<leader>Ga", by_desc["Accept permission / diff"].lhs)
-    assert.are.equal("<leader>Gd", by_desc["Deny permission / diff"].lhs)
+    assert.are.equal("<leader>Ga", by_desc["Accept diff review"].lhs)
+    assert.are.equal("<leader>Gd", by_desc["Deny diff review"].lhs)
     assert.are.equal("<leader>Gn", by_desc["New session"].lhs)
     assert.are.equal("<leader>Gr", by_desc["Resume session"].lhs)
     assert.are.equal("<leader>GM", by_desc["Pick model"].lhs)
-  end)
-
-  it("buffer accept/deny does not include bare a or d", function()
-    local list = keys.buffer_accept_deny()
-    local set = {}
-    for _, k in ipairs(list) do
-      set[k] = true
-    end
-    assert.is_true(set["y"])
-    assert.is_true(set["n"])
-    assert.is_nil(set["a"])
-    assert.is_nil(set["d"])
-    assert.is_true(set["<leader>Ga"])
-    assert.is_true(set["<leader>Gd"])
-  end)
-
-  it("accept_deny_keys follow keys_prefix", function()
-    config.setup({ keys_prefix = "<leader>X" })
-    local a, d = config.accept_deny_keys()
-    assert.are.equal("<leader>Xa", a)
-    assert.are.equal("<leader>Xd", d)
   end)
 end)
