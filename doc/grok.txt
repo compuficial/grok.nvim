@@ -33,13 +33,19 @@ pickers, permission prompts — plus Neovim commands and keymaps to drive it.
 ==============================================================================
 3. SETUP                                                          *grok-setup*
 
+Add the plugin to the runtimepath (plugin manager or |packages|). `setup()` is
+optional; call it only to change options or enable `default_keys`.
+
 >lua
   require("grok").setup({
     -- all fields optional; defaults shown in |grok-options|
   })
 <
 
-lazy.nvim spec (see the README for a fuller example): >lua
+Install snippets for lazy.nvim, packer.nvim, vim-plug, mini.deps, and native
+|packages| are in the project README. Minimal examples:
+
+lazy.nvim: >lua
   {
     "compuficial/grok.nvim",
     cmd = { "Grok", "GrokFocus", "GrokSend", "GrokAdd" },
@@ -49,6 +55,25 @@ lazy.nvim spec (see the README for a fuller example): >lua
     },
     opts = { theme = "tokyonight" },
   }
+<
+
+packer.nvim: >lua
+  use({
+    "compuficial/grok.nvim",
+    config = function()
+      require("grok").setup({ theme = "tokyonight" })
+    end,
+  })
+<
+
+vim-plug: >vim
+  Plug 'compuficial/grok.nvim'
+<
+Then `require("grok").setup({ ... })` from your init.
+
+Native package: >
+  git clone --depth 1 https://github.com/compuficial/grok.nvim \
+    ~/.local/share/nvim/site/pack/plugins/start/grok.nvim
 <
 
 ==============================================================================
@@ -149,7 +174,7 @@ Default maps under `keys_prefix` (default <leader>G): >
   b  Add current buffer a  Accept diff review d  Deny diff review
   n  New session        r  Resume session     c  Continue session
   x  Cancel turn        M  Pick model         t  Switch theme
-  m  Toggle review/auto
+  m  Toggle review/auto h  Grok health
 <
 The lowercase <leader>g prefix is intentionally avoided (LazyVim git group).
 

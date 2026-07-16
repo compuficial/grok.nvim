@@ -1,6 +1,6 @@
 # grok.nvim
 
-https://github.com/user-attachments/assets/d9e6c8f3-df41-4830-a9d8-3a2915829cfc
+<https://github.com/user-attachments/assets/d9e6c8f3-df41-4830-a9d8-3a2915829cfc>
 
 [Grok Build](https://x.ai) inside Neovim — the real `grok` TUI in a sidebar
 split, with commands and keymaps to drive it from your editor.
@@ -18,13 +18,24 @@ split, with commands and keymaps to drive it from your editor.
 - `grok` CLI on `PATH` (or set `opts.tui_cmd`)
 - Optional: [snacks.nvim](https://github.com/folke/snacks.nvim) for nicer pickers
 
-## Install (lazy.nvim)
+## Install
+
+Clone or add the repo to your plugin manager so `lua/` and `plugin/` are on
+the runtimepath. `setup()` is optional (sensible defaults apply); call it only
+if you want to change options or enable `default_keys`.
+
+Capital `<leader>G` keeps the Grok mnemonic without touching LazyVim's
+`<leader>g` git group. No maps are created unless you define them (or opt in
+with `default_keys = true`).
+
+### lazy.nvim
 
 ```lua
 {
   "compuficial/grok.nvim", -- or: dir = "~/path/to/grok.nvim" while developing
   cmd = { "Grok", "GrokFocus", "GrokSend", "GrokAdd", "GrokNew",
-          "GrokResume", "GrokContinue", "GrokModel", "GrokTheme", "GrokCancel" },
+          "GrokResume", "GrokContinue", "GrokModel", "GrokTheme", "GrokCancel",
+          "GrokHealth" },
   keys = {
     { "<leader>G", "", desc = "+grok", mode = { "n", "v" } },
     { "<leader>Gg", "<cmd>Grok<cr>", desc = "Toggle Grok" },
@@ -37,14 +48,60 @@ split, with commands and keymaps to drive it from your editor.
     { "<leader>GM", "<cmd>GrokModel<cr>", desc = "Pick model" },
     { "<leader>Gt", "<cmd>GrokTheme<cr>", desc = "Switch theme" },
     { "<leader>Gx", "<cmd>GrokCancel<cr>", desc = "Cancel turn" },
+    { "<leader>Gh", "<cmd>GrokHealth<cr>", desc = "Grok health" },
   },
   opts = { theme = "tokyonight" },
 }
 ```
 
-Capital `<leader>G` keeps the Grok mnemonic without touching LazyVim's
-`<leader>g` git group. No maps are created unless you define them (or opt in
-with `default_keys = true`).
+### packer.nvim
+
+```lua
+use({
+  "compuficial/grok.nvim",
+  config = function()
+    require("grok").setup({ theme = "tokyonight" })
+    -- or define your own maps; see Default keys below
+  end,
+})
+```
+
+### vim-plug
+
+```vim
+Plug 'compuficial/grok.nvim'
+```
+
+Then in `init.lua` (or Lua block in `init.vim`):
+
+```lua
+require("grok").setup({ theme = "tokyonight" })
+```
+
+### mini.deps
+
+```lua
+add({
+  source = "compuficial/grok.nvim",
+})
+require("grok").setup({ theme = "tokyonight" })
+```
+
+### Native packages (no plugin manager)
+
+```bash
+git clone --depth 1 https://github.com/compuficial/grok.nvim \
+  "${XDG_DATA_HOME:-$HOME/.local/share}/nvim/site/pack/plugins/start/grok.nvim"
+```
+
+Then:
+
+```lua
+require("grok").setup({ theme = "tokyonight" })
+```
+
+For an optional (lazy-loaded) package, clone into `…/pack/plugins/opt/grok.nvim`
+and `:packadd grok.nvim` before `setup()`.
 
 ## Setup
 
@@ -119,7 +176,7 @@ CLI. `:Grok` again hides the window; the process keeps running.
 Off by default; enable with `setup({ default_keys = true })`. Under
 `keys_prefix` (default `<leader>G`): `g` toggle, `f` focus, `s` send selection
 (visual), `b` add buffer, `a`/`d` accept/deny diff review, `n` new, `r` resume,
-`c` continue, `M` model, `t` theme, `x` cancel, `m` review/auto.
+`c` continue, `M` model, `t` theme, `x` cancel, `m` review/auto, `h` health.
 
 ## Lua API
 
