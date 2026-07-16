@@ -1,21 +1,41 @@
 #!/usr/bin/env bash
 # grok PreToolUse hook: gate agent file edits behind a Neovim diff review.
-# Outside a Neovim terminal (no $NVIM) this exits without a decision, so
-# grok's normal permission flow applies and plain-terminal use is unchanged.
+#
+# Without $NVIM: exit 0 with no decision so plain-terminal grok is unchanged.
+# With $NVIM: fail-closed — registration/poll failures and unpresentable edits
+# deny the tool (the TUI runs acceptEdits; silent fail-open would auto-apply).
 set -u
+
+deny() {
+  # Reasons are static ASCII — no JSON escaping needed.
+  printf '%s\n' "{\"decision\": \"deny\", \"reason\": \"$1\"}"
+  exit 2
+}
 
 [ -n "${NVIM:-}" ] || exit 0
 command -v nvim >/dev/null 2>&1 || exit 0
 
-b64=$(base64 -w0 2>/dev/null || base64)
-[ -n "$b64" ] || exit 0
+payload_file=$(mktemp "${TMPDIR:-/tmp}/grok-nvim-review.XXXXXX") || deny "Failed to create temp file for edit review"
+trap 'rm -f "$payload_file"' EXIT
 
-id=$(nvim --server "$NVIM" --remote-expr "v:lua.require'grok.review'._rpc('$b64')" 2>/dev/null) || exit 0
-[ -n "$id" ] || exit 0
+cat >"$payload_file" || deny "Failed to buffer PreToolUse payload"
+[ -s "$payload_file" ] || deny "Empty PreToolUse payload"
+
+# Path only on the CLI (short); payload body stays on disk — avoids ARG_MAX
+# and base64 line-wrapping differences across platforms.
+path_esc=${payload_file//\'/\'\\\'\'}
+id=$(nvim --server "$NVIM" --remote-expr "v:lua.require'grok.review'._rpc_file('$path_esc')" 2>/dev/null) \
+  || deny "Neovim RPC failed while registering edit review"
+
+# remote-expr may quote the return value; keep digits only.
+id=$(printf '%s' "$id" | tr -cd '0-9')
+[ -n "$id" ] || deny "Could not present edit for review in Neovim"
 
 deadline=$(($(date +%s) + ${GROK_NVIM_REVIEW_TIMEOUT:-240} + 10))
 while [ "$(date +%s)" -lt "$deadline" ]; do
-  status=$(nvim --server "$NVIM" --remote-expr "v:lua.require'grok.review'._status($id)" 2>/dev/null) || exit 0
+  status=$(nvim --server "$NVIM" --remote-expr "v:lua.require'grok.review'._status($id)" 2>/dev/null) \
+    || deny "Neovim RPC failed while polling edit review"
+  status=$(printf '%s' "$status" | tr -d "'\"[:space:]")
   case "$status" in
     allow)
       echo '{"decision": "allow"}'
@@ -29,10 +49,9 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
       sleep 0.2
       ;;
     *)
-      exit 0
+      deny "Unknown review status from Neovim"
       ;;
   esac
 done
 
-echo '{"decision": "deny", "reason": "Neovim diff review timed out"}'
-exit 2
+deny "Neovim diff review timed out"

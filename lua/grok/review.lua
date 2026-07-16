@@ -1,6 +1,6 @@
 --- Native diff review for agent file edits, driven by grok's PreToolUse hook.
---- scripts/grok-hook.sh registers a review over RPC and polls _status until
---- the user decides in a diff tab (or the review times out to deny).
+--- scripts/grok-hook.sh writes the payload to a temp file, registers via
+--- _rpc_file, and polls _status until the user decides (or timeout → deny).
 local config = require("grok.config")
 
 local M = {}
@@ -17,6 +17,9 @@ local function resolve(review, decision)
     return
   end
   review.decision = decision
+  -- Drop heavy buffers early; entry stays until _status is polled.
+  review.current = nil
+  review.proposed = nil
   if review.timer then
     review.timer:stop()
     review.timer:close()
@@ -24,8 +27,12 @@ local function resolve(review, decision)
   end
   if state.active == review.id then
     state.active = nil
+    local prev = review.prev_tab
     if review.tab and vim.api.nvim_tabpage_is_valid(review.tab) then
       pcall(vim.cmd, vim.api.nvim_tabpage_get_number(review.tab) .. "tabclose")
+    end
+    if prev and vim.api.nvim_tabpage_is_valid(prev) then
+      pcall(vim.api.nvim_set_current_tabpage, prev)
     end
     vim.schedule(M._show_next)
   end
@@ -94,7 +101,7 @@ end
 
 local function apply_search_replace(text, old, new, replace_all)
   -- Empty pattern matches at every position (find returns e < s); replace_all
-  -- would spin forever. Treat as unreviewable and fail open.
+  -- would spin forever. Treat as unpresentable (hook denies when $NVIM is set).
   if type(old) ~= "string" or old == "" then
     return nil
   end
@@ -117,7 +124,7 @@ local function apply_search_replace(text, old, new, replace_all)
 end
 
 --- Build { path, current, proposed } from a PreToolUse payload, or nil when
---- the edit cannot be rendered (the hook then falls open to grok's flow).
+--- the edit cannot be rendered (hook denies under $NVIM + acceptEdits).
 local function build_review(payload)
   local input = payload.toolInput or {}
   local path = input.file_path
@@ -156,17 +163,10 @@ local function build_review(payload)
   return nil
 end
 
---- RPC entry point for the hook script. Returns the review id, or "" when
---- no review is possible (no decision; grok's normal permission flow runs).
---- @param b64_payload string
---- @return string
-function M._rpc(b64_payload)
-  local ok, payload = pcall(function()
-    return vim.json.decode(vim.base64.decode(b64_payload))
-  end)
-  if not ok or type(payload) ~= "table" then
-    return ""
-  end
+--- Register a pending review from a decoded payload table.
+--- @param payload table
+--- @return string id or "" when no review is possible
+local function register(payload)
   local review = build_review(payload)
   if not review then
     return ""
@@ -192,12 +192,50 @@ function M._rpc(b64_payload)
   return tostring(review.id)
 end
 
---- Polled by the hook script.
+--- Hook entry: read PreToolUse JSON from a temp file path (avoids ARG_MAX).
+--- @param path string
+--- @return string
+function M._rpc_file(path)
+  if type(path) ~= "string" or path == "" then
+    return ""
+  end
+  local ok, payload = pcall(function()
+    return vim.json.decode(table.concat(vim.fn.readfile(path), "\n"))
+  end)
+  if not ok or type(payload) ~= "table" then
+    return ""
+  end
+  return register(payload)
+end
+
+--- Test / legacy entry: base64-encoded JSON payload.
+--- @param b64_payload string
+--- @return string
+function M._rpc(b64_payload)
+  local ok, payload = pcall(function()
+    return vim.json.decode(vim.base64.decode(b64_payload))
+  end)
+  if not ok or type(payload) ~= "table" then
+    return ""
+  end
+  return register(payload)
+end
+
+--- Polled by the hook script. Terminal decisions are forgotten after one read
+--- so state.reviews does not grow unbounded across a long session.
 --- @param id number|string
 --- @return string "pending"|"allow"|"deny"|"unknown"
 function M._status(id)
-  local review = state.reviews[tonumber(id)]
-  return review and review.decision or "unknown"
+  local key = tonumber(id)
+  local review = key and state.reviews[key]
+  if not review then
+    return "unknown"
+  end
+  local decision = review.decision
+  if decision ~= "pending" then
+    state.reviews[key] = nil
+  end
+  return decision
 end
 
 --- The review currently shown, if any.

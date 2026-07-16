@@ -111,7 +111,7 @@ function M.set_model(model)
     terminal.focus()
     return
   end
-  config.get().model = model
+  config.set_model(model)
   terminal.restart()
 end
 
@@ -126,11 +126,7 @@ end
 --- Permission mode for the next TUI (re)start: "review" | "auto".
 --- @param mode string
 function M.set_mode(mode)
-  if mode ~= "review" and mode ~= "auto" then
-    error("grok.nvim: mode must be 'review' or 'auto'")
-  end
-  config.get().permission_mode = mode
-  return mode
+  return config.set_permission_mode(mode)
 end
 
 function M.toggle_mode()

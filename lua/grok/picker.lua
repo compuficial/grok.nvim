@@ -3,14 +3,8 @@ local config = require("grok.config")
 local M = {}
 
 --- Injectable system runner for tests: `function(cmd: string[]|string): string`.
+--- When set, sessions/models still invoke the callback asynchronously via schedule.
 M._system = nil
-
-local function system(cmd)
-  if M._system then
-    return M._system(cmd)
-  end
-  return vim.fn.system(cmd)
-end
 
 local function grok_bin()
   local cmd = config.get().tui_cmd
@@ -18,6 +12,24 @@ local function grok_bin()
     return cmd[1]
   end
   return "grok"
+end
+
+--- Run a command and deliver stdout to cb on the main loop (non-blocking).
+--- @param cmd string[]
+--- @param cb fun(stdout: string)
+local function system_async(cmd, cb)
+  if M._system then
+    local out = M._system(cmd)
+    vim.schedule(function()
+      cb(out or "")
+    end)
+    return
+  end
+  vim.system(cmd, { text = true }, function(result)
+    vim.schedule(function()
+      cb((result and result.stdout) or "")
+    end)
+  end)
 end
 
 --- Parse `grok sessions list` table output into { id, summary, label } entries.
@@ -83,23 +95,24 @@ end
 --- @param cb fun(item: {id:string, summary:string, label:string}|nil)
 function M.sessions(cb)
   cb = cb or function() end
-  local out = system({ grok_bin(), "sessions", "list" })
-  local sessions = M.parse_sessions(out)
-  if #sessions == 0 then
-    vim.notify("Grok: no sessions found", vim.log.levels.WARN)
-    cb(nil)
-    return
-  end
-  local labels = {}
-  for i, s in ipairs(sessions) do
-    labels[i] = s.label
-  end
-  ui_select(labels, { prompt = "Grok sessions" }, function(choice, idx)
-    if not choice or not idx then
+  system_async({ grok_bin(), "sessions", "list" }, function(out)
+    local sessions = M.parse_sessions(out)
+    if #sessions == 0 then
+      vim.notify("Grok: no sessions found", vim.log.levels.WARN)
       cb(nil)
       return
     end
-    cb(sessions[idx])
+    local labels = {}
+    for i, s in ipairs(sessions) do
+      labels[i] = s.label
+    end
+    ui_select(labels, { prompt = "Grok sessions" }, function(choice, idx)
+      if not choice or not idx then
+        cb(nil)
+        return
+      end
+      cb(sessions[idx])
+    end)
   end)
 end
 
@@ -107,23 +120,24 @@ end
 --- @param cb fun(item: {id:string, label:string}|nil)
 function M.models(cb)
   cb = cb or function() end
-  local out = system({ grok_bin(), "models" })
-  local models = M.parse_models(out)
-  if #models == 0 then
-    vim.notify("Grok: no models found", vim.log.levels.WARN)
-    cb(nil)
-    return
-  end
-  local labels = {}
-  for i, m in ipairs(models) do
-    labels[i] = m.label
-  end
-  ui_select(labels, { prompt = "Grok models" }, function(choice, idx)
-    if not choice or not idx then
+  system_async({ grok_bin(), "models" }, function(out)
+    local models = M.parse_models(out)
+    if #models == 0 then
+      vim.notify("Grok: no models found", vim.log.levels.WARN)
       cb(nil)
       return
     end
-    cb(models[idx])
+    local labels = {}
+    for i, m in ipairs(models) do
+      labels[i] = m.label
+    end
+    ui_select(labels, { prompt = "Grok models" }, function(choice, idx)
+      if not choice or not idx then
+        cb(nil)
+        return
+      end
+      cb(models[idx])
+    end)
   end)
 end
 

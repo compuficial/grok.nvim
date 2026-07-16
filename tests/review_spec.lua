@@ -115,6 +115,46 @@ describe("grok.review", function()
     )
   end)
 
+  it("registers from a payload file path (_rpc_file)", function()
+    local path = tmp .. "/payload.json"
+    vim.fn.writefile({
+      vim.json.encode({
+        toolName = "write",
+        toolInput = { file_path = tmp .. "/from-file.lua", content = "ok\n" },
+        cwd = tmp,
+      }),
+    }, path)
+    local id = review._rpc_file(path)
+    assert.is_truthy(tonumber(id))
+    assert.are.equal("pending", review._status(id))
+  end)
+
+  it("forgets terminal reviews after the first _status poll", function()
+    local id = review._rpc(payload("write", { file_path = tmp .. "/once.txt", content = "x\n" }))
+    vim.wait(500, function()
+      return review.current() ~= nil
+    end)
+    review.accept()
+    assert.are.equal("allow", review._status(id))
+    assert.are.equal("unknown", review._status(id))
+  end)
+
+  it("restores the previous tab after accepting a review", function()
+    local start_tab = vim.api.nvim_get_current_tabpage()
+    local id = review._rpc(payload("write", { file_path = tmp .. "/tab.txt", content = "t\n" }))
+    vim.wait(500, function()
+      return review.current() ~= nil
+    end)
+    assert.are_not.equal(start_tab, vim.api.nvim_get_current_tabpage())
+    review.accept()
+    -- wait for resolve/tabclose without consuming _status (single-shot)
+    vim.wait(500, function()
+      return review.current() == nil and vim.api.nvim_get_current_tabpage() == start_tab
+    end)
+    assert.are.equal(start_tab, vim.api.nvim_get_current_tabpage())
+    assert.are.equal("allow", review._status(id))
+  end)
+
   it("queues concurrent reviews and shows them one at a time", function()
     local id1 = review._rpc(payload("write", { file_path = tmp .. "/a.txt", content = "a\n" }))
     local id2 = review._rpc(payload("write", { file_path = tmp .. "/b.txt", content = "b\n" }))
@@ -138,10 +178,12 @@ describe("grok.review", function()
       return review.current() ~= nil
     end)
     vim.cmd("tabclose")
+    local status
     vim.wait(500, function()
-      return review._status(id) ~= "pending"
+      status = review._status(id)
+      return status ~= "pending"
     end)
-    assert.are.equal("deny", review._status(id))
+    assert.are.equal("deny", status)
   end)
 
   it("cancel_all denies everything pending", function()

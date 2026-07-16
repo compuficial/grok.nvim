@@ -51,8 +51,28 @@ function M.setup(opts)
   return current
 end
 
+--- Live config table (read-mostly). Prefer set_* helpers for writes.
 function M.get()
   return current
+end
+
+--- @param model string|nil
+function M.set_model(model)
+  if model == nil or model == "" then
+    current.model = nil
+  else
+    current.model = model
+  end
+end
+
+--- @param mode "review"|"auto"
+--- @return string
+function M.set_permission_mode(mode)
+  if mode ~= "review" and mode ~= "auto" then
+    error("grok.nvim: permission_mode must be 'review' or 'auto'")
+  end
+  current.permission_mode = mode
+  return mode
 end
 
 --- Prefix for the optional default maps.
