@@ -163,10 +163,25 @@ local function build_review(payload)
   return nil
 end
 
+--- Hands-off modes honor grok's intent: no gating when the TUI runs
+--- auto/always-approve, nor when the plugin's own mode is toggled to auto
+--- (:GrokAuto — consulted live, per edit).
+local HANDS_OFF_TUI_MODES = { auto = true, bypassPermissions = true, dontAsk = true }
+
+local function hands_off(payload)
+  return config.get().permission_mode == "auto" or HANDS_OFF_TUI_MODES[payload.permissionMode] == true
+end
+
 --- Register a pending review from a decoded payload table.
 --- @param payload table
 --- @return string id or "" when no review is possible
 local function register(payload)
+  if hands_off(payload) then
+    state.counter = state.counter + 1
+    state.reviews[state.counter] = { id = state.counter, decision = "allow" }
+    return tostring(state.counter)
+  end
+
   local review = build_review(payload)
   if not review then
     return ""

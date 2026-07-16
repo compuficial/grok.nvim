@@ -113,19 +113,22 @@ end, {
   desc = "Switch Grok TUI color theme (picker if no arg)",
 })
 
+local function notify_mode(mode)
+  local detail = mode == "auto" and "edit diffs off now; TUI prompts follow on next start"
+    or "edit diffs on now; TUI prompts follow on next start"
+  vim.notify("Grok: permission mode " .. mode .. " — " .. detail, vim.log.levels.INFO)
+end
+
 vim.api.nvim_create_user_command("GrokAuto", function()
-  require("grok").set_mode("auto")
-  vim.notify("Grok: permission mode auto (applies on next TUI start)", vim.log.levels.INFO)
+  notify_mode(require("grok").set_mode("auto"))
 end, { desc = "Set Grok permission mode to auto" })
 
 vim.api.nvim_create_user_command("GrokReview", function()
-  require("grok").set_mode("review")
-  vim.notify("Grok: permission mode review (applies on next TUI start)", vim.log.levels.INFO)
+  notify_mode(require("grok").set_mode("review"))
 end, { desc = "Set Grok permission mode to review" })
 
 vim.api.nvim_create_user_command("GrokMode", function()
-  local mode = require("grok").toggle_mode()
-  vim.notify("Grok: permission mode " .. mode .. " (applies on next TUI start)", vim.log.levels.INFO)
+  notify_mode(require("grok").toggle_mode())
 end, { desc = "Toggle Grok permission mode (review ↔ auto)" })
 
 vim.api.nvim_create_user_command("GrokHealth", function()

@@ -130,8 +130,9 @@ Defaults: >lua
 
                                         *:GrokAuto* *:GrokReview* *:GrokMode*
 :GrokAuto / :GrokReview / :GrokMode
-                        Set or toggle the permission mode, applied on the
-                        next TUI (re)start.
+                        Set or toggle the permission mode. The edit diff
+                        gate follows immediately; the TUI's own prompting
+                        follows on the next TUI (re)start.
 
                                                                  *:GrokHealth*
 :GrokHealth             Run |:checkhealth| grok.
@@ -164,6 +165,10 @@ Neovim diff in a new tab: current file on the left, proposed on the right.
 closing the diff rejects it and the agent is told why. Unanswered reviews
 are denied after `review_timeout` seconds. Other tools (shell commands, web
 fetches) keep the TUI's own permission prompts.
+
+Hands-off modes are honored: |:GrokAuto| turns the diff gate off immediately
+(|:GrokReview| turns it back on), and a TUI running `--permission-mode auto`
+or `--always-approve` is never gated.
 
 This works through a grok `PreToolUse` hook the plugin manages at
 `~/.grok/hooks/grok-nvim.json`. The hook is inert outside Neovim (plain

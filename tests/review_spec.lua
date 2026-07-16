@@ -4,12 +4,13 @@ local function b64(s)
   return vim.base64.encode(s)
 end
 
-local function payload(tool, input)
+local function payload(tool, input, permission_mode)
   return b64(vim.json.encode({
     hookEventName = "pre_tool_use",
     cwd = vim.fn.getcwd(),
     toolName = tool,
     toolInput = input,
+    permissionMode = permission_mode,
   }))
 end
 
@@ -29,6 +30,36 @@ describe("grok.review", function()
   after_each(function()
     review._reset_for_test()
     vim.fn.delete(tmp, "rf")
+  end)
+
+  describe("hands-off modes skip the gate", function()
+    local function edit(mode)
+      return payload("write", { file_path = tmp .. "/auto.txt", content = "x\n" }, mode)
+    end
+
+    it("TUI auto mode allows immediately without UI", function()
+      local id = review._rpc(edit("auto"))
+      assert.is_truthy(tonumber(id))
+      assert.is_nil(review.current())
+      assert.are.equal("allow", review._status(id))
+    end)
+
+    it("TUI bypassPermissions / dontAsk allow immediately", function()
+      assert.are.equal("allow", review._status(review._rpc(edit("bypassPermissions"))))
+      assert.are.equal("allow", review._status(review._rpc(edit("dontAsk"))))
+    end)
+
+    it(":GrokAuto (plugin permission_mode) bypasses live even under acceptEdits", function()
+      config.set_permission_mode("auto")
+      local id = review._rpc(edit("acceptEdits"))
+      assert.is_nil(review.current())
+      assert.are.equal("allow", review._status(id))
+    end)
+
+    it("acceptEdits in review mode still gates", function()
+      local id = review._rpc(edit("acceptEdits"))
+      assert.are.equal("pending", review._status(id))
+    end)
   end)
 
   it("registers a write payload and reports pending", function()

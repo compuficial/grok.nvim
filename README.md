@@ -74,7 +74,9 @@ CLI. `:Grok` again hides the window; the process keeps running.
   opens as a native Neovim diff. `y` (or `:GrokDiffAccept`) applies it, `n`
   (or `:GrokDiffDeny`, or closing the diff) rejects it and the agent is told
   why. Everything else (shell commands, web fetches) keeps grok's own TUI
-  prompts. Powered by a grok `PreToolUse` hook the plugin manages at
+  prompts. In hands-off modes nothing asks: `:GrokAuto` skips the diff gate
+  live, and a TUI running `--permission-mode auto` / `--always-approve` is
+  never gated. Powered by a grok `PreToolUse` hook the plugin manages at
   `~/.grok/hooks/grok-nvim.json`; the hook is inert outside Neovim and is
   removed when `diff_review = false`.
 - **Colorscheme**: the TUI paints its own theme (GrokNight). Switch live with

@@ -43,5 +43,4 @@ describe("grok.config", function()
       config.set_permission_mode("yolo")
     end)
   end)
-
 end)
