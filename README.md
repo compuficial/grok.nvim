@@ -1,5 +1,7 @@
 # grok.nvim
 
+https://github.com/user-attachments/assets/d9e6c8f3-df41-4830-a9d8-3a2915829cfc
+
 [Grok Build](https://x.ai) inside Neovim — the real `grok` TUI in a sidebar
 split, with commands and keymaps to drive it from your editor.
 
