@@ -1,13 +1,13 @@
 # grok.nvim
 
-[Grok Build](https://x.ai) inside Neovim — the real Grok Build TUI embedded in a
-sidebar terminal, the same way [claudecode.nvim](https://github.com/coder/claudecode.nvim)
-embeds Claude Code.
+[Grok Build](https://x.ai) inside Neovim — the real `grok` TUI in a sidebar
+split, with commands and keymaps to drive it from your editor.
 
-| UI | Experience |
-|----|------------|
-| **terminal** (default) | The actual `grok` TUI in a terminal split — identical look, all TUI features |
-| **acp** (legacy) | Buffer-based [ACP](https://agentclientprotocol.com/) chat client with Neovim-native diff review |
+- Full TUI: slash commands, pickers, permission prompts, worktrees
+- Editor-matching themes (`tokyonight`, `rosepine-moon`, `oscura-midnight`, …)
+- `Ctrl+h/j/k/l` window navigation straight from the sidebar
+- Buffers reload automatically when the agent edits files
+- Send visual selections and `@file` mentions into the prompt
 
 ## Requirements
 
@@ -49,7 +49,6 @@ Defaults:
 
 ```lua
 require("grok").setup({
-  ui = "terminal",            -- "terminal" (real TUI) | "acp" (legacy)
   tui_cmd = { "grok" },       -- command for the embedded TUI
   theme = nil,                -- TUI theme applied on start, e.g. "tokyonight"
   nav_keys = true,            -- Ctrl+h/j/k/l window navigation from the sidebar
@@ -60,61 +59,50 @@ require("grok").setup({
   sidebar = { position = "right", width = 0.36 },
   default_keys = false,       -- opt-in maps under keys_prefix
   keys_prefix = "<leader>G",
-  cmd = { "grok", "agent", "stdio" }, -- acp only
-  thoughts = "collapsed",             -- acp only
-  follow = { enabled = true },        -- acp only
 })
 ```
 
-## Terminal UI
+## Usage
 
-`:Grok` opens the Grok Build TUI in a sidebar — slash commands, pickers,
-permission prompts, worktrees, exactly like the standalone CLI. `:Grok` again
-hides the window; the process keeps running.
+`:Grok` opens the Grok Build TUI in a sidebar — exactly like the standalone
+CLI. `:Grok` again hides the window; the process keeps running.
 
-- **Colorscheme**: the TUI paints its own theme (GrokNight). Grok ships
-  editor-matching ones — `tokyonight`, `rosepine-moon`, `oscura-midnight`,
-  `grokday`. Switch live with `:GrokTheme`; set `theme = "tokyonight"` to
-  apply it on every start (grok does not persist `/theme`).
+- **Colorscheme**: the TUI paints its own theme (GrokNight). Switch live with
+  `:GrokTheme`; set `theme = "tokyonight"` to apply it on every start (grok
+  does not persist `/theme`).
 - **Navigation**: `Ctrl+h/j/k/l` jump to adjacent windows even from
   terminal-mode. `i` re-enters the prompt.
-- **Reloading**: buffers the TUI edits on disk reload when you re-enter
-  their windows.
+- **Context**: visually select code and `:GrokSend` to paste it into the
+  prompt; `:GrokAdd` mentions the current file.
+- **Reloading**: buffers the TUI edits on disk reload when you re-enter their
+  windows.
 
 `:help grok` has the full reference.
 
 ## Commands
 
-| Command | Terminal UI (default) | ACP UI |
-|---------|-----------------------|--------|
-| `:Grok` | Toggle sidebar (TUI keeps running when hidden) | Toggle sidebar |
-| `:GrokFocus` | Focus sidebar (opens if needed) | Open sidebar |
-| `:GrokNew` | Restart TUI with a fresh session | New ACP session |
-| `:GrokResume` | Session picker → `--resume <id>` | Session picker via `session/load` |
-| `:GrokContinue` | `--continue` (most recent for cwd) | Session picker |
-| `:GrokModel [id]` | `/model` picker; with arg restarts on that model (tab-completes) | Model picker; restarts agent |
-| `:GrokSend` | Paste visual selection into the TUI prompt | Send selection as prompt context |
-| `:GrokAdd [path]` | Paste `@file` mention into the TUI prompt | Attach current buffer to next prompt |
-| `:GrokTheme [name]` | Switch TUI theme (tab-completes) | — |
-| `:GrokCancel` | Send Esc (interrupt turn) | Cancel current turn |
-| `:GrokAuto` / `:GrokReview` / `:GrokMode` | Permission mode for the next TUI start | Set / toggle mode live |
-| `:GrokDiffAccept` / `:GrokDiffDeny` | — (the TUI prompts inline) | Accept / deny pending permission |
-| `:GrokStop` | Kill the TUI process | Stop agent process |
-| `:GrokHealth` | `:checkhealth grok` | same |
+| Command | Action |
+|---------|--------|
+| `:Grok` | Toggle the sidebar (TUI keeps running when hidden) |
+| `:GrokFocus` | Focus the sidebar, opening it if needed |
+| `:GrokNew` | Start a fresh session |
+| `:GrokResume` | Session picker → resume |
+| `:GrokContinue` | Continue the most recent session for the cwd |
+| `:GrokModel [id]` | Model picker; with an id (tab-completes), restart on that model |
+| `:GrokTheme [name]` | Switch TUI theme (tab-completes) |
+| `:GrokSend` | Paste the visual selection into the prompt |
+| `:GrokAdd [path]` | Paste an `@file` mention into the prompt |
+| `:GrokCancel` | Interrupt the current turn |
+| `:GrokAuto` / `:GrokReview` / `:GrokMode` | Permission mode for the next TUI start |
+| `:GrokStop` | Kill the TUI process |
+| `:GrokHealth` | `:checkhealth grok` |
 
 ## Default keys
 
 Off by default; enable with `setup({ default_keys = true })`. Under
 `keys_prefix` (default `<leader>G`): `g` toggle, `f` focus, `s` send selection
 (visual), `b` add buffer, `n` new, `r` resume, `c` continue, `M` model,
-`t` theme, `x` cancel, `a`/`d` accept/deny (acp), `m` review/auto (acp).
-
-## ACP UI (legacy)
-
-`ui = "acp"` renders a chat buffer over `grok agent stdio`: **Review** mode
-shows file edits as native diffs (accept `y` / deny `n`, or
-`:GrokDiffAccept` / `:GrokDiffDeny`); **Auto** mode allows permissions and
-follows tool locations. Toggle with `:GrokMode`.
+`t` theme, `x` cancel, `m` review/auto.
 
 ## Lua API
 
@@ -122,13 +110,12 @@ follows tool locations. Toggle with `:GrokMode`.
 local grok = require("grok")
 grok.setup(opts)
 grok.toggle() / grok.open() / grok.close() / grok.focus()
-grok.send(text, { submit = true })  -- acp: { blocks = ... }
+grok.send(text, { submit = true })
 grok.cancel() / grok.stop()
 grok.new_session() / grok.resume_session() / grok.continue_session()
 grok.set_model(name?)  -- nil → picker
 grok.set_theme(name?)  -- nil → picker
 grok.set_mode("review"|"auto") / grok.toggle_mode() / grok.get_mode()
-grok.accept_permission() / grok.deny_permission()  -- acp
 ```
 
 ## Tests

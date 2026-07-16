@@ -12,19 +12,15 @@ CONTENTS                                                       *grok-contents*
   4. Options .............................................. |grok-options|
   5. Commands ............................................. |grok-commands|
   6. Keymaps .............................................. |grok-keymaps|
-  7. Terminal UI .......................................... |grok-terminal|
-  8. ACP UI (legacy) ...................................... |grok-acp|
-  9. Health ............................................... |grok-health|
+  7. Sidebar .............................................. |grok-sidebar|
+  8. Health ............................................... |grok-health|
 
 ==============================================================================
 1. INTRODUCTION                                            *grok-introduction*
 
-grok.nvim embeds the real Grok Build TUI (the `grok` CLI) in a sidebar
-terminal split, the same way claudecode.nvim embeds Claude Code. You get the
-CLI exactly as it looks standalone — slash commands, pickers, permission
-prompts — plus Neovim commands and keymaps to drive it.
-
-A legacy buffer-based ACP chat client is available via `ui = "acp"`.
+grok.nvim runs the Grok Build TUI (the `grok` CLI) in a sidebar terminal
+split. You get the CLI exactly as it looks standalone — slash commands,
+pickers, permission prompts — plus Neovim commands and keymaps to drive it.
 
 ==============================================================================
 2. REQUIREMENTS                                            *grok-requirements*
@@ -51,7 +47,7 @@ lazy.nvim spec (see the README for a fuller example): >lua
       { "<leader>Gg", "<cmd>Grok<cr>", desc = "Toggle Grok" },
       { "<leader>Gs", ":'<,'>GrokSend<cr>", mode = "v", desc = "Send selection" },
     },
-    opts = {},
+    opts = { theme = "tokyonight" },
   }
 <
 
@@ -60,12 +56,10 @@ lazy.nvim spec (see the README for a fuller example): >lua
 
 Defaults: >lua
   require("grok").setup({
-    ui = "terminal",           -- "terminal" (real TUI) | "acp" (legacy)
     tui_cmd = { "grok" },      -- command for the embedded TUI
-    auto_reload = true,        -- checktime when TUI edits files on disk
-    nav_keys = true,           -- Ctrl+h/j/k/l window nav from the sidebar
     theme = nil,               -- TUI theme applied on start (e.g. "tokyonight")
-    cmd = { "grok", "agent", "stdio" }, -- acp mode agent command
+    nav_keys = true,           -- Ctrl+h/j/k/l window nav from the sidebar
+    auto_reload = true,        -- checktime when the TUI edits files on disk
     model = nil,               -- nil → CLI default
     cwd = nil,                 -- nil → vim.fn.getcwd()
     permission_mode = "review",-- "review" | "auto"
@@ -73,50 +67,36 @@ Defaults: >lua
       position = "right",      -- "right" | "left"
       width = 0.36,            -- fraction of columns, or absolute columns
     },
-    thoughts = "collapsed",    -- acp: "collapsed" | "expanded" | "hidden"
-    follow = { enabled = true }, -- acp auto mode follow-along
     default_keys = false,      -- opt-in default maps (|grok-keymaps|)
     keys_prefix = "<leader>G", -- prefix for default maps
   })
 <
 
-`permission_mode = "auto"` starts the TUI with `--permission-mode auto`; in
-acp mode it auto-allows permission requests.
+`permission_mode = "auto"` starts the TUI with `--permission-mode auto`.
 
 ==============================================================================
 5. COMMANDS                                                    *grok-commands*
 
                                                                        *:Grok*
-:Grok                   Toggle the sidebar. In terminal mode the TUI process
-                        keeps running while hidden.
+:Grok                   Toggle the sidebar. The TUI process keeps running
+                        while hidden.
 
                                                                   *:GrokFocus*
 :GrokFocus              Focus the sidebar, opening it if needed.
 
                                                                     *:GrokNew*
-:GrokNew                Start a fresh session (terminal: restarts the TUI).
+:GrokNew                Restart the TUI with a fresh session.
 
                                                                  *:GrokResume*
-:GrokResume             Pick a past session and resume it (terminal:
-                        `--resume <id>`; acp: ACP session/load).
+:GrokResume             Pick a past session and resume it (`--resume <id>`).
 
                                                                *:GrokContinue*
 :GrokContinue           Continue the most recent session for the cwd
-                        (terminal: `--continue`).
+                        (`--continue`).
 
                                                                   *:GrokModel*
-:GrokModel [{model}]    Model picker (terminal: the TUI's /model picker).
-                        With {model} (tab-completes), restarts on that model.
-
-                                                                   *:GrokSend*
-:{range}GrokSend [{text}]
-                        Send the visual selection / range as prompt context.
-                        Terminal mode pastes `path:l1-l2` plus a fenced code
-                        block into the TUI prompt without submitting.
-
-                                                                    *:GrokAdd*
-:GrokAdd [{path}]       Add {path} (or the current buffer) to the prompt as
-                        an `@file` mention (terminal) or attachment (acp).
+:GrokModel [{model}]    Open the TUI's /model picker. With {model}
+                        (tab-completes), restart on that model.
 
                                                                   *:GrokTheme*
 :GrokTheme [{theme}]    Switch the TUI color theme via /theme. Grok ships
@@ -124,21 +104,26 @@ acp mode it auto-allows permission requests.
                         oscura-midnight, grokday). Not persisted by grok —
                         set the `theme` option to apply on every start.
 
+                                                                   *:GrokSend*
+:{range}GrokSend [{text}]
+                        Paste the visual selection / range into the TUI
+                        prompt as `path:l1-l2` plus a fenced code block,
+                        without submitting.
+
+                                                                    *:GrokAdd*
+:GrokAdd [{path}]       Paste an `@file` mention for {path} (or the current
+                        buffer) into the TUI prompt.
+
                                                                  *:GrokCancel*
-:GrokCancel             Interrupt the current turn (terminal: sends <Esc>).
+:GrokCancel             Interrupt the current turn (sends <Esc>).
 
                                                                    *:GrokStop*
-:GrokStop               Kill the agent/TUI process.
+:GrokStop               Kill the TUI process.
 
                                         *:GrokAuto* *:GrokReview* *:GrokMode*
 :GrokAuto / :GrokReview / :GrokMode
-                        Set or toggle the permission mode. Terminal mode
-                        applies it on the next TUI (re)start.
-
-                                            *:GrokDiffAccept* *:GrokDiffDeny*
-:GrokDiffAccept / :GrokDiffDeny
-                        acp mode only: accept / deny the pending permission
-                        or diff review. The terminal TUI prompts inline.
+                        Set or toggle the permission mode, applied on the
+                        next TUI (re)start.
 
                                                                  *:GrokHealth*
 :GrokHealth             Run |:checkhealth| grok.
@@ -154,39 +139,30 @@ Default maps under `keys_prefix` (default <leader>G): >
   g  Toggle Grok        f  Focus Grok         s  (visual) Send selection
   b  Add current buffer n  New session        r  Resume session
   c  Continue session   x  Cancel turn        M  Pick model
-  t  Switch theme       a  Accept (acp)       d  Deny (acp)
-  m  Toggle review/auto
+  t  Switch theme       m  Toggle review/auto
 <
 The lowercase <leader>g prefix is intentionally avoided (LazyVim git group).
 
 ==============================================================================
-7. TERMINAL UI                                                 *grok-terminal*
+7. SIDEBAR                                                      *grok-sidebar*
 
 The sidebar is a normal Neovim |terminal| running the Grok Build TUI:
 
 - Type prompts directly; all TUI features work (slash commands, ctrl+s
   session picker, worktrees, its own permission prompts).
-- |CTRL-\_CTRL-N| leaves terminal-mode; `i` re-enters it.
-- Hiding the sidebar (:Grok) keeps the process alive; :GrokStop kills it.
 - With `nav_keys` (default on), CTRL-H/J/K/L jump to adjacent windows even
-  from terminal-mode, so the sidebar behaves like any other window.
+  from terminal-mode. |CTRL-\_CTRL-N| also leaves terminal-mode; `i`
+  re-enters the prompt.
+- Hiding the sidebar (:Grok) keeps the process alive; :GrokStop kills it.
 - With `auto_reload` (default on), buffers edited by the TUI reload when you
   re-enter their windows ('autoread' must be on, which is Neovim's default).
 - The TUI paints its own theme; set `theme = "tokyonight"` (or another
   built-in) to match your editor. |:GrokTheme| switches live.
 
 ==============================================================================
-8. ACP UI (LEGACY)                                                  *grok-acp*
-
-`ui = "acp"` renders a chat buffer over the Agent Client Protocol
-(`grok agent stdio`): Review/Auto permission modes, Neovim-native single-file
-diff review (y/n or :GrokDiffAccept / :GrokDiffDeny), thought collapsing, and
-follow-along. See the README for details.
-
-==============================================================================
-9. HEALTH                                                        *grok-health*
+8. HEALTH                                                        *grok-health*
 
 Run `:checkhealth grok` to verify the CLI is executable, show its version,
-and report the active ui / model / permission mode.
+and report the active model and permission mode.
 
 vim:tw=78:ts=8:noet:ft=help:norl:
