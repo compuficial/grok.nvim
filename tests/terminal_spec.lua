@@ -166,6 +166,24 @@ describe("grok.terminal", function()
       assert.is_true(ok)
     end)
 
+    it("zeroes scroll offsets so full-width TUI rows never sidescroll", function()
+      local saved_sso, saved_so = vim.o.sidescrolloff, vim.o.scrolloff
+      vim.o.sidescrolloff = 8
+      vim.o.scrolloff = 4
+      terminal.open()
+      local win = terminal.get_win()
+      assert.are.equal(0, vim.wo[win].sidescrolloff)
+      assert.are.equal(0, vim.wo[win].scrolloff)
+      -- survives hide + re-show (a fresh window and buffer switch)
+      terminal.toggle()
+      terminal.toggle()
+      win = terminal.get_win()
+      assert.are.equal(0, vim.wo[win].sidescrolloff)
+      assert.are.equal(0, vim.wo[win].scrolloff)
+      vim.o.sidescrolloff = saved_sso
+      vim.o.scrolloff = saved_so
+    end)
+
     it("stop kills the job and closes the window", function()
       terminal.open()
       terminal.stop()

@@ -106,12 +106,23 @@ local function open_split()
   vim.cmd(position == "left" and "topleft vsplit" or "botright vsplit")
   local win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_width(win, sidebar_width())
+  return win
+end
+
+--- Apply after the TUI buffer is in the window: global-local options
+--- (scrolloff, sidescrolloff) reset to global whenever a window changes
+--- buffer, so setting them before :enew / win_set_buf would be lost.
+local function configure_win(win)
   vim.wo[win].number = false
   vim.wo[win].relativenumber = false
   vim.wo[win].signcolumn = "no"
   vim.wo[win].foldcolumn = "0"
   vim.wo[win].winfixwidth = true
-  return win
+  -- TUI rows are painted full window width; any scrolloff margin makes
+  -- normal-mode cursor movement near an edge sidescroll the whole pane
+  -- (LazyVim defaults sidescrolloff=8).
+  vim.wo[win].sidescrolloff = 0
+  vim.wo[win].scrolloff = 0
 end
 
 --- grok wraps notifications in tmux passthrough when it sees $TMUX, which
@@ -272,7 +283,9 @@ function M.open(opts)
   end
 
   if M.is_running() then
-    vim.api.nvim_win_set_buf(open_split(), state.buf)
+    local win = open_split()
+    vim.api.nvim_win_set_buf(win, state.buf)
+    configure_win(win)
     M.focus()
     return
   end
@@ -296,6 +309,7 @@ function M.open(opts)
   state.job = job
   vim.bo[buf].bufhidden = "hide"
   vim.bo[buf].buflisted = false
+  configure_win(win)
   set_nav_keys(buf)
   forward_notifications(buf)
   ensure_autoread()
