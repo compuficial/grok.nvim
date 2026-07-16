@@ -33,10 +33,12 @@ local function sidebar_width()
   return math.max(math.floor(w), 28)
 end
 
---- Full TUI command: tui_cmd + model + permission mode + extra args. Pure.
---- With diff_review, review mode runs as acceptEdits: the Neovim diff gate
---- decides edits (grok's permission system won't re-prompt), everything
---- else keeps the TUI's own prompts.
+--- Full TUI command: tui_cmd + model + permission args + extra args. Pure.
+--- With diff_review, edit tools get --allow rules so the Neovim diff is the
+--- single gate: PreToolUse hooks run before rules and can still deny, but an
+--- approved edit is not re-prompted by the TUI. (--permission-mode
+--- acceptEdits is accepted-but-ignored by grok's CLI flag, so rules it is.)
+--- Everything else keeps the TUI's own prompts.
 --- @param extra_args string[]|nil
 --- @return string[]
 function M.build_cmd(extra_args)
@@ -50,8 +52,7 @@ function M.build_cmd(extra_args)
     table.insert(cmd, "--permission-mode")
     table.insert(cmd, "auto")
   elseif cfg.diff_review then
-    table.insert(cmd, "--permission-mode")
-    table.insert(cmd, "acceptEdits")
+    vim.list_extend(cmd, { "--allow", "Edit", "--allow", "Write" })
   end
   for _, a in ipairs(extra_args or {}) do
     table.insert(cmd, a)

@@ -124,7 +124,8 @@ local function apply_search_replace(text, old, new, replace_all)
 end
 
 --- Build { path, current, proposed } from a PreToolUse payload, or nil when
---- the edit cannot be rendered (hook denies under $NVIM + acceptEdits).
+--- the edit cannot be rendered (hook denies under $NVIM: the TUI runs with
+--- edit allow rules, so silent fail-open would auto-apply).
 local function build_review(payload)
   local input = payload.toolInput or {}
   local path = input.file_path

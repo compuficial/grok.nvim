@@ -75,7 +75,7 @@ describe("scripts/grok-hook.sh", function()
     assert.are.equal("", result.stdout)
   end)
 
-  it("denies unpresentable payloads when $NVIM is set (fail-closed under acceptEdits)", function()
+  it("denies unpresentable payloads when $NVIM is set (fail-closed under edit allow rules)", function()
     local job, sock = start_server(nil)
     local result = run_hook(sock, vim.json.encode({ toolName = "grep", toolInput = { pattern = "x" } }))
     vim.fn.jobstop(job)
