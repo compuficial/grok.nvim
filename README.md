@@ -20,7 +20,7 @@ split, with commands and keymaps to drive it from your editor.
 
 ```lua
 {
-  "OWNER/grok.nvim", -- or: dir = "~/path/to/grok.nvim" while developing
+  "compuficial/grok.nvim", -- or: dir = "~/path/to/grok.nvim" while developing
   cmd = { "Grok", "GrokFocus", "GrokSend", "GrokAdd", "GrokNew",
           "GrokResume", "GrokContinue", "GrokModel", "GrokTheme", "GrokCancel" },
   keys = {

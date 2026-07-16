@@ -41,7 +41,7 @@ pickers, permission prompts — plus Neovim commands and keymaps to drive it.
 
 lazy.nvim spec (see the README for a fuller example): >lua
   {
-    "OWNER/grok.nvim",
+    "compuficial/grok.nvim",
     cmd = { "Grok", "GrokFocus", "GrokSend", "GrokAdd" },
     keys = {
       { "<leader>Gg", "<cmd>Grok<cr>", desc = "Toggle Grok" },
